@@ -9,10 +9,7 @@ export default class LocalFile implements GenericFilehandle {
     this.filename = source
   }
 
-  public async read(
-    length: number,
-    position = 0,
-  ): Promise<Uint8Array<ArrayBuffer>> {
+  public async read(length: number, position = 0) {
     const arr = new Uint8Array(length)
     const fd = await open(this.filename, 'r')
     const res = await fd.read(arr, 0, length, position)
