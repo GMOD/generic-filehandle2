@@ -32,3 +32,5 @@ export { open, fromUrl }
 export { default as BlobFile } from './blobFile'
 export { default as RemoteFile } from './remoteFile'
 export { default as LocalFile } from './localFile'
+
+export { type GenericFilehandle } from './filehandle'
