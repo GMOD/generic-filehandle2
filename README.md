@@ -1,7 +1,6 @@
 # generic-filehandle2
 
 [![NPM version](https://img.shields.io/npm/v/generic-filehandle2.svg?style=flat-square)](https://npmjs.org/package/generic-filehandle2)
-[![Coverage Status](https://img.shields.io/codecov/c/github/GMOD/generic-filehandle2/master.svg?style=flat-square)](https://codecov.io/gh/GMOD/generic-filehandle2/branch/master)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/GMOD/generic-filehandle2/push.yml?branch=master)](https://github.com/GMOD/generic-filehandle2/actions)
 
 Provides a uniform interface for accessing binary data from local files, remote
