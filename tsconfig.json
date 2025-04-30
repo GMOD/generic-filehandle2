@@ -1,8 +1,15 @@
 {
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "compilerOptions": {
-    "types": ["node"],
-    "lib": ["dom", "esnext"],
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "dom",
+      "esnext"
+    ],
     "target": "es2020",
     "moduleResolution": "node",
     "sourceMap": true,
@@ -13,6 +20,8 @@
     "declaration": true,
     "noUncheckedIndexedAccess": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "esModuleInterop": true
   }
 }
