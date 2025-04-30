@@ -30,8 +30,8 @@ function open(
 }
 
 export { fromUrl, open }
-export { default as BlobFile } from './blobFile'
-export { default as RemoteFile } from './remoteFile'
-export { default as LocalFile } from './localFile'
+export { default as BlobFile } from './blobFile.ts'
+export { default as RemoteFile } from './remoteFile.ts'
+export { default as LocalFile } from './localFile.ts'
 
-export { type GenericFilehandle } from './filehandle'
+export { type GenericFilehandle } from './filehandle.ts'
