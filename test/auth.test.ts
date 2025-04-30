@@ -1,7 +1,9 @@
-import { afterEach, test, expect } from 'vitest'
-import fetchMock from 'fetch-mock'
-import { RemoteFile } from '../src/'
 import { TextDecoder } from 'util'
+
+import fetchMock from 'fetch-mock'
+import { afterEach, expect, test } from 'vitest'
+
+import { RemoteFile } from '../src/'
 
 fetchMock.config.sendAsJson = false
 

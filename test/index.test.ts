@@ -1,6 +1,7 @@
-import { test, expect } from 'vitest'
 import fetchMock from 'fetch-mock'
-import { LocalFile, open, fromUrl } from '../src/'
+import { expect, test } from 'vitest'
+
+import { LocalFile, fromUrl, open } from '../src/'
 
 test('fromUrl local', async () => {
   const fetch = fetchMock.sandbox().mock('http://fakehost/test.txt', () => {

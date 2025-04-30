@@ -1,6 +1,8 @@
-import { test, expect } from 'vitest'
-import { LocalFile } from '../src/'
 import { TextDecoder } from 'util'
+
+import { expect, test } from 'vitest'
+
+import { LocalFile } from '../src/'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)

@@ -1,9 +1,9 @@
-import {
-  GenericFilehandle,
-  FilehandleOptions,
-  Stats,
+import type {
   Fetcher,
-} from './filehandle'
+  FilehandleOptions,
+  GenericFilehandle,
+  Stats,
+} from './filehandle.ts'
 
 function getMessage(e: unknown) {
   const r =

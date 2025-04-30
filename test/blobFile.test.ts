@@ -1,7 +1,9 @@
-import { test, expect } from 'vitest'
 import fs from 'fs'
-import { BlobFile } from '../src/'
 import { TextDecoder } from 'util'
+
+import { expect, test } from 'vitest'
+
+import { BlobFile } from '../src/'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)

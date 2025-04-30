@@ -1,4 +1,8 @@
-import { GenericFilehandle, FilehandleOptions, Stats } from './filehandle'
+import type {
+  FilehandleOptions,
+  GenericFilehandle,
+  Stats,
+} from './filehandle.ts'
 
 /**
  * Blob of binary data fetched from a local file (with FileReader).

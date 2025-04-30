@@ -1,11 +1,11 @@
-import { readFile, stat, open } from 'fs/promises'
-import { GenericFilehandle, FilehandleOptions } from './filehandle'
+import { open, readFile, stat } from 'fs/promises'
+
+import type { FilehandleOptions, GenericFilehandle } from './filehandle.ts'
 
 export default class LocalFile implements GenericFilehandle {
   private filename: string
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public constructor(source: string, opts: FilehandleOptions = {}) {
+  public constructor(source: string, _opts: FilehandleOptions = {}) {
     this.filename = source
   }
 
