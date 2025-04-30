@@ -1,8 +1,9 @@
-import LocalFile from './localFile'
-import RemoteFile from './remoteFile'
+import LocalFile from './localFile.ts'
+import RemoteFile from './remoteFile.ts'
 
-import { GenericFilehandle, FilehandleOptions } from './filehandle'
-export * from './filehandle'
+import type { FilehandleOptions, GenericFilehandle } from './filehandle.ts'
+
+export * from './filehandle.ts'
 
 function fromUrl(
   source: string,
@@ -28,7 +29,7 @@ function open(
   throw new Error('no url, path, or filehandle provided, cannot open')
 }
 
-export { open, fromUrl }
+export { fromUrl, open }
 export { default as BlobFile } from './blobFile'
 export { default as RemoteFile } from './remoteFile'
 export { default as LocalFile } from './localFile'

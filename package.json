@@ -2,8 +2,16 @@
   "name": "generic-filehandle2",
   "description": "uniform interface for accessing binary data from local files, remote HTTP resources, and browser Blob data",
   "version": "1.0.0",
-  "main": "dist/index.js",
-  "module": "esm/index.js",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": {
+      "import": "./esm/index.js"
+    },
+    "require": {
+      "require": "./dist/index.js"
+    }
+  },
   "repository": "GMOD/generic-filehandle2",
   "license": "MIT",
   "author": {
@@ -39,13 +47,12 @@
   ],
   "devDependencies": {
     "@types/fetch-mock": "^7.3.8",
-    "@types/node": "^20.11.24",
+    "@types/node": "^22.15.3",
     "@types/range-parser": "^1.2.7",
-    "@typescript-eslint/eslint-plugin": "^8.16.0",
-    "@typescript-eslint/parser": "^8.16.0",
     "@vitest/coverage-v8": "^3.0.1",
     "eslint": "^9.16.0",
-    "eslint-plugin-unicorn": "^56.0.1",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-unicorn": "^59.0.0",
     "fetch-mock": "^9.0.0",
     "node-fetch": "^2.0.0",
     "prettier": "^3.4.1",

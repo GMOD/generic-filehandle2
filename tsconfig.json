@@ -13,6 +13,8 @@
     "declaration": true,
     "noUncheckedIndexedAccess": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "esModuleInterop": true
   }
 }

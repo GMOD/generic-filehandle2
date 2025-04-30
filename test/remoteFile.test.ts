@@ -1,9 +1,11 @@
-import { afterEach, test, expect } from 'vitest'
-import fetchMock from 'fetch-mock'
-import { LocalFile, RemoteFile } from '../src/'
 import { TextDecoder } from 'util'
 
+import fetchMock from 'fetch-mock'
 import rangeParser from 'range-parser'
+import { afterEach, expect, test } from 'vitest'
+
+import { LocalFile, RemoteFile } from '../src/'
+
 fetchMock.config.sendAsJson = false
 
 function toString(a: Uint8Array<ArrayBuffer>) {
