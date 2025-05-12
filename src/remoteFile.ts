@@ -97,7 +97,7 @@ export default class RemoteFile implements GenericFilehandle {
     position: number,
     opts: FilehandleOptions = {},
   ): Promise<Uint8Array<ArrayBuffer>> {
-    const { headers = {}, signal, overrides = {}, statusCallback } = opts
+    const { headers = {}, signal, overrides = {} } = opts
     if (length < Infinity) {
       headers.range = `bytes=${position}-${position + length}`
     } else if (length === Infinity && position !== 0) {
@@ -122,67 +122,15 @@ export default class RemoteFile implements GenericFilehandle {
     }
 
     if ((res.status === 200 && position === 0) || res.status === 206) {
-      // Get the total size for progress reporting
-      const contentLength = res.headers.get('content-length')
-      const totalBytes = contentLength ? parseInt(contentLength, 10) : undefined
-
-      // Use ReadableStream API for progress reporting if statusCallback is provided
-      if (statusCallback && res.body) {
-        const reader = res.body.getReader()
-        const chunks: Uint8Array[] = []
-        let receivedBytes = 0
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { done, value } = await reader.read()
-
-          if (done) {
-            break
-          }
-
-          chunks.push(value)
-          receivedBytes += value.length
-
-          if (statusCallback && totalBytes) {
-            statusCallback(
-              `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
-            )
-          }
+      // try to parse out the size of the remote file
+      const contentRange = res.headers.get('content-range')
+      const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
+      if (sizeMatch?.[1]) {
+        this._stat = {
+          size: parseInt(sizeMatch[1], 10),
         }
-
-        // Concatenate chunks
-        const chunksAll = new Uint8Array(receivedBytes)
-        let position = 0
-        for (const chunk of chunks) {
-          chunksAll.set(chunk, position)
-          position += chunk.length
-        }
-
-        // try to parse out the size of the remote file
-        const contentRange = res.headers.get('content-range')
-        const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
-        if (sizeMatch?.[1]) {
-          this._stat = {
-            size: parseInt(sizeMatch[1], 10),
-          }
-        }
-
-        return chunksAll.slice(0, length)
-      } else {
-        // If no statusCallback, use the simpler approach
-        const resData = await res.arrayBuffer()
-
-        // try to parse out the size of the remote file
-        const contentRange = res.headers.get('content-range')
-        const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
-        if (sizeMatch?.[1]) {
-          this._stat = {
-            size: parseInt(sizeMatch[1], 10),
-          }
-        }
-
-        return new Uint8Array(resData.slice(0, length))
       }
+      return new Uint8Array(await res.arrayBuffer())
     }
 
     // eslint-disable-next-line unicorn/prefer-ternary
@@ -243,7 +191,7 @@ export default class RemoteFile implements GenericFilehandle {
       const chunks: Uint8Array[] = []
       let receivedBytes = 0
 
-      // eslint-disable-next-line no-constant-condition
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       while (true) {
         const { done, value } = await reader.read()
 
@@ -259,7 +207,7 @@ export default class RemoteFile implements GenericFilehandle {
         )
       }
 
-      if (encoding === 'utf8') {
+      if (encoding === 'utf8' || encoding === 'utf-8') {
         const decoder = new TextDecoder('utf-8')
         return decoder.decode(concatUint8Array(chunks))
       } else if (encoding) {
@@ -268,8 +216,7 @@ export default class RemoteFile implements GenericFilehandle {
         return concatUint8Array(chunks)
       }
     } else {
-      // If no statusCallback, use the simpler approach
-      if (encoding === 'utf8') {
+      if (encoding === 'utf8' || encoding === 'utf-8') {
         return res.text()
       } else if (encoding) {
         throw new Error(`unsupported encoding: ${encoding}`)
