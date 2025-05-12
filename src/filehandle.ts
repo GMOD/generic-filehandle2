@@ -11,6 +11,7 @@ export interface FilehandleOptions {
   headers?: any
   overrides?: any
   encoding?: BufferEncoding
+  statusCallback?: (arg: string) => void
   /**
    * fetch function to use for HTTP requests. defaults to environment's
    * global fetch. if there is no global fetch, and a fetch function is not provided,
