@@ -127,12 +127,12 @@ export default class RemoteFile implements GenericFilehandle {
       const totalBytes = contentLength ? parseInt(contentLength, 10) : undefined
 
       // Use ReadableStream API for progress reporting if statusCallback is provided
-      if (statusCallback && res.body) {
+      if (statusCallback && res.body && totalBytes) {
         const reader = res.body.getReader()
         const chunks: Uint8Array[] = []
         let receivedBytes = 0
 
-        // eslint-disable-next-line no-constant-condition
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         while (true) {
           const { done, value } = await reader.read()
 
@@ -143,11 +143,9 @@ export default class RemoteFile implements GenericFilehandle {
           chunks.push(value)
           receivedBytes += value.length
 
-          if (statusCallback && totalBytes) {
-            statusCallback(
-              `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
-            )
-          }
+          statusCallback(
+            `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
+          )
         }
 
         // Concatenate chunks
@@ -243,7 +241,7 @@ export default class RemoteFile implements GenericFilehandle {
       const chunks: Uint8Array[] = []
       let receivedBytes = 0
 
-      // eslint-disable-next-line no-constant-condition
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       while (true) {
         const { done, value } = await reader.read()
 
@@ -259,7 +257,7 @@ export default class RemoteFile implements GenericFilehandle {
         )
       }
 
-      if (encoding === 'utf8') {
+      if (encoding === 'utf8' || encoding === 'utf-8') {
         const decoder = new TextDecoder('utf-8')
         return decoder.decode(concatUint8Array(chunks))
       } else if (encoding) {
@@ -268,8 +266,7 @@ export default class RemoteFile implements GenericFilehandle {
         return concatUint8Array(chunks)
       }
     } else {
-      // If no statusCallback, use the simpler approach
-      if (encoding === 'utf8') {
+      if (encoding === 'utf8' || encoding === 'utf-8') {
         return res.text()
       } else if (encoding) {
         throw new Error(`unsupported encoding: ${encoding}`)
