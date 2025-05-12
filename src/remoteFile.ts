@@ -20,6 +20,22 @@ export function toLocale(n: number) {
 function r(s: number) {
   return toLocale(Number.parseFloat(s.toPrecision(3)))
 }
+function sum(array: Uint8Array[]) {
+  let sum = 0
+  for (const entry of array) {
+    sum += entry.length
+  }
+  return sum
+}
+function concatUint8Array(args: Uint8Array[]) {
+  const mergedArray = new Uint8Array(sum(args))
+  let offset = 0
+  for (const entry of args) {
+    mergedArray.set(entry, offset)
+    offset += entry.length
+  }
+  return mergedArray
+}
 export function getProgressDisplayStr(current: number, total: number) {
   if (Math.floor(total / 1_000_000) > 0) {
     return `${r(current / 1_000_000)}/${r(total / 1_000_000)}Mb`
@@ -222,7 +238,7 @@ export default class RemoteFile implements GenericFilehandle {
     const contentLength = res.headers.get('content-length')
     const totalBytes = contentLength ? parseInt(contentLength, 10) : undefined
 
-    if (statusCallback && res.body) {
+    if (statusCallback && res.body && totalBytes) {
       const reader = res.body.getReader()
       const chunks: Uint8Array[] = []
       let receivedBytes = 0
@@ -238,28 +254,18 @@ export default class RemoteFile implements GenericFilehandle {
         chunks.push(value)
         receivedBytes += value.length
 
-        if (statusCallback && totalBytes) {
-          statusCallback(
-            `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
-          )
-        }
-      }
-
-      // Concatenate chunks
-      const chunksAll = new Uint8Array(receivedBytes)
-      let position = 0
-      for (const chunk of chunks) {
-        chunksAll.set(chunk, position)
-        position += chunk.length
+        statusCallback(
+          `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
+        )
       }
 
       if (encoding === 'utf8') {
         const decoder = new TextDecoder('utf-8')
-        return decoder.decode(chunksAll)
+        return decoder.decode(concatUint8Array(chunks))
       } else if (encoding) {
         throw new Error(`unsupported encoding: ${encoding}`)
       } else {
-        return chunksAll
+        return concatUint8Array(chunks)
       }
     } else {
       // If no statusCallback, use the simpler approach
