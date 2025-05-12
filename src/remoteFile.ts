@@ -13,6 +13,39 @@ function getMessage(e: unknown) {
   return r.replace(/\.$/, '')
 }
 
+export function toLocale(n: number) {
+  return n.toLocaleString('en-US')
+}
+
+function r(s: number) {
+  return toLocale(Number.parseFloat(s.toPrecision(3)))
+}
+function sum(array: Uint8Array[]) {
+  let sum = 0
+  for (const entry of array) {
+    sum += entry.length
+  }
+  return sum
+}
+function concatUint8Array(args: Uint8Array[]) {
+  const mergedArray = new Uint8Array(sum(args))
+  let offset = 0
+  for (const entry of args) {
+    mergedArray.set(entry, offset)
+    offset += entry.length
+  }
+  return mergedArray
+}
+export function getProgressDisplayStr(current: number, total: number) {
+  if (Math.floor(total / 1_000_000) > 0) {
+    return `${r(current / 1_000_000)}/${r(total / 1_000_000)}Mb`
+  } else if (Math.floor(total / 1_000) > 0) {
+    return `${r(current / 1_000)}/${r(total / 1_000)}Kb`
+  } else {
+    return `${r(current)}/${r(total)}}bytes`
+  }
+}
+
 export default class RemoteFile implements GenericFilehandle {
   protected url: string
   private _stat?: Stats
@@ -64,7 +97,7 @@ export default class RemoteFile implements GenericFilehandle {
     position: number,
     opts: FilehandleOptions = {},
   ): Promise<Uint8Array<ArrayBuffer>> {
-    const { headers = {}, signal, overrides = {} } = opts
+    const { headers = {}, signal, overrides = {}, statusCallback } = opts
     if (length < Infinity) {
       headers.range = `bytes=${position}-${position + length}`
     } else if (length === Infinity && position !== 0) {
@@ -89,18 +122,65 @@ export default class RemoteFile implements GenericFilehandle {
     }
 
     if ((res.status === 200 && position === 0) || res.status === 206) {
-      const resData = await res.arrayBuffer()
+      // Get the total size for progress reporting
+      const contentLength = res.headers.get('content-length')
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : undefined
 
-      // try to parse out the size of the remote file
-      const contentRange = res.headers.get('content-range')
-      const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
-      if (sizeMatch?.[1]) {
-        this._stat = {
-          size: parseInt(sizeMatch[1], 10),
+      // Use ReadableStream API for progress reporting if statusCallback is provided
+      if (statusCallback && res.body && totalBytes) {
+        const reader = res.body.getReader()
+        const chunks: Uint8Array[] = []
+        let receivedBytes = 0
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        while (true) {
+          const { done, value } = await reader.read()
+
+          if (done) {
+            break
+          }
+
+          chunks.push(value)
+          receivedBytes += value.length
+
+          statusCallback(
+            `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
+          )
         }
-      }
 
-      return new Uint8Array(resData.slice(0, length))
+        // Concatenate chunks
+        const chunksAll = new Uint8Array(receivedBytes)
+        let position = 0
+        for (const chunk of chunks) {
+          chunksAll.set(chunk, position)
+          position += chunk.length
+        }
+
+        // try to parse out the size of the remote file
+        const contentRange = res.headers.get('content-range')
+        const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
+        if (sizeMatch?.[1]) {
+          this._stat = {
+            size: parseInt(sizeMatch[1], 10),
+          }
+        }
+
+        return chunksAll.slice(0, length)
+      } else {
+        // If no statusCallback, use the simpler approach
+        const resData = await res.arrayBuffer()
+
+        // try to parse out the size of the remote file
+        const contentRange = res.headers.get('content-range')
+        const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
+        if (sizeMatch?.[1]) {
+          this._stat = {
+            size: parseInt(sizeMatch[1], 10),
+          }
+        }
+
+        return new Uint8Array(resData.slice(0, length))
+      }
     }
 
     // eslint-disable-next-line unicorn/prefer-ternary
@@ -139,7 +219,7 @@ export default class RemoteFile implements GenericFilehandle {
       opts = options
       delete opts.encoding
     }
-    const { headers = {}, signal, overrides = {} } = opts
+    const { statusCallback, headers = {}, signal, overrides = {} } = opts
     const res = await this.fetch(this.url, {
       headers,
       method: 'GET',
@@ -152,12 +232,47 @@ export default class RemoteFile implements GenericFilehandle {
     if (res.status !== 200) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
-    if (encoding === 'utf8') {
-      return res.text()
-    } else if (encoding) {
-      throw new Error(`unsupported encoding: ${encoding}`)
+    // Get the total size for progress reporting
+    const contentLength = res.headers.get('content-length')
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : undefined
+
+    if (statusCallback && res.body && totalBytes) {
+      const reader = res.body.getReader()
+      const chunks: Uint8Array[] = []
+      let receivedBytes = 0
+
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) {
+          break
+        }
+
+        chunks.push(value)
+        receivedBytes += value.length
+
+        statusCallback(
+          `Downloading ${getProgressDisplayStr(receivedBytes, totalBytes)}`,
+        )
+      }
+
+      if (encoding === 'utf8' || encoding === 'utf-8') {
+        const decoder = new TextDecoder('utf-8')
+        return decoder.decode(concatUint8Array(chunks))
+      } else if (encoding) {
+        throw new Error(`unsupported encoding: ${encoding}`)
+      } else {
+        return concatUint8Array(chunks)
+      }
     } else {
-      return new Uint8Array(await res.arrayBuffer())
+      if (encoding === 'utf8' || encoding === 'utf-8') {
+        return res.text()
+      } else if (encoding) {
+        throw new Error(`unsupported encoding: ${encoding}`)
+      } else {
+        return new Uint8Array(await res.arrayBuffer())
+      }
     }
   }
 
