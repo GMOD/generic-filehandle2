@@ -56,7 +56,6 @@ export default tseslint.config(
       'unicorn/prefer-modern-math-apis': 'off',
       'unicorn/prefer-node-protocol': 'off',
       'unicorn/no-unreadable-array-destructuring': 'off',
-      'unicorn/text-encoding-identifier-case': 'off',
       'unicorn/no-abusive-eslint-disable': 'off',
       'unicorn/no-array-callback-reference': 'off',
       'unicorn/number-literal-case': 'off',
