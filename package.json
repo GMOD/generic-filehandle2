@@ -2,8 +2,19 @@
   "name": "generic-filehandle2",
   "description": "uniform interface for accessing binary data from local files, remote HTTP resources, and browser Blob data",
   "version": "2.0.3",
-  "main": "dist/index.js",
-  "module": "esm/index.js",
+  "type": "module",
+  "main": "./esm/index.js",
+  "exports": {
+    ".": {
+      "import": "./esm/index.js",
+      "require": "./dist/index.js"
+    },
+    "./localFile.js": {
+      "import": "./esm/localFile.js",
+      "require": "./dist/localFile.js",
+      "browser": null
+    }
+  },
   "repository": "GMOD/generic-filehandle2",
   "license": "MIT",
   "author": {
@@ -12,10 +23,9 @@
     "url": "https://github.com/cmdcolin"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
   },
   "files": [
-    "dist",
     "esm",
     "src"
   ],
@@ -23,12 +33,9 @@
     "test": "vitest",
     "coverage": "yarn test --coverage",
     "lint": "eslint --report-unused-disable-directives --max-warnings 0 src test",
-    "clean": "rimraf dist esm",
+    "clean": "rimraf esm",
     "prebuild": "yarn clean",
-    "build:esm": "tsc --outDir esm",
-    "build:es5": "tsc --module commonjs --outDir dist",
-    "build": "yarn build:esm && yarn build:es5",
-    "postbuild:es5": "echo '{\"type\": \"commonjs\"}' > dist/package.json",
+    "build": "tsc --outDir esm",
     "preversion": "yarn lint && yarn test --run && yarn build",
     "postversion": "git push --follow-tags"
   },
@@ -39,28 +46,22 @@
     "genomics"
   ],
   "devDependencies": {
-    "@types/fetch-mock": "^7.3.8",
     "@types/node": "^22.15.3",
     "@types/range-parser": "^1.2.7",
     "@vitest/coverage-v8": "^3.0.1",
     "eslint": "^9.16.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-unicorn": "^59.0.0",
-    "fetch-mock": "^9.0.0",
     "node-fetch": "^2.0.0",
     "prettier": "^3.4.1",
     "range-parser": "^1.2.1",
     "rimraf": "^6.0.0",
-    "standard-changelog": "^6.0.0",
+    "standard-changelog": "^7.0.1",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.18.0",
     "vitest": "^3.0.1"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "browser": {
-    "./dist/localFile.js": false,
-    "./esm/localFile.js": false
   }
 }
