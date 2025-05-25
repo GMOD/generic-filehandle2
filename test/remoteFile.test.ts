@@ -1,7 +1,7 @@
 import { TextDecoder } from 'util'
 
 import rangeParser from 'range-parser'
-import { beforeEach, afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { LocalFile, RemoteFile } from '../src/'
 
