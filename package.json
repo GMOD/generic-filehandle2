@@ -2,8 +2,17 @@
   "name": "generic-filehandle2",
   "description": "uniform interface for accessing binary data from local files, remote HTTP resources, and browser Blob data",
   "version": "2.0.5",
-  "main": "dist/index.js",
-  "module": "esm/index.js",
+  "type": "module",
+  "module": "./esm/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": {
+      "import": "./esm/index.js"
+    },
+    "require": {
+      "require": "./dist/index.js"
+    }
+  },
   "repository": "GMOD/generic-filehandle2",
   "license": "MIT",
   "author": {
@@ -12,7 +21,7 @@
     "url": "https://github.com/cmdcolin"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=14"
   },
   "files": [
     "dist",
@@ -45,10 +54,11 @@
     "eslint": "^9.16.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-unicorn": "^59.0.0",
+    "node-fetch": "^2.0.0",
     "prettier": "^3.4.1",
     "range-parser": "^1.2.1",
     "rimraf": "^6.0.0",
-    "standard-changelog": "^6.0.0",
+    "standard-changelog": "^7.0.1",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.18.0",
     "vitest": "^3.0.1"
@@ -58,6 +68,8 @@
   },
   "browser": {
     "./dist/localFile.js": false,
-    "./esm/localFile.js": false
+    "./esm/localFile.js": false,
+    "fs": false,
+    "fs/promises": false
   }
 }
