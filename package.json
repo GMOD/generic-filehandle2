@@ -2,8 +2,16 @@
   "name": "generic-filehandle2",
   "description": "uniform interface for accessing binary data from local files, remote HTTP resources, and browser Blob data",
   "version": "2.0.9",
-  "module": "./esm/index.js",
-  "main": "./dist/index.js",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": {
+      "import": "./esm/index.js"
+    },
+    "require": {
+      "require": "./dist/index.js"
+    }
+  },
   "repository": "GMOD/generic-filehandle2",
   "license": "MIT",
   "author": {
