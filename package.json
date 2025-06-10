@@ -7,12 +7,7 @@
   "exports": {
     ".": {
       "import": "./esm/index.js",
-      "browser": "./esm/browser.js",
-      "require": "./dist/browser.js",
-      "node": {
-        "import": "./esm/index.js",
-        "require": "./dist/index.js"
-      }
+      "require": "./dist/index.js"
     }
   },
   "repository": "GMOD/generic-filehandle2",
@@ -69,6 +64,7 @@
   },
   "browser": {
     "fs/promises": false,
-    "fs": false
+    "fs": false,
+    "./dist/localFile.js": false
   }
 }
