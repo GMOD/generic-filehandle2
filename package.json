@@ -5,11 +5,11 @@
   "type": "module",
   "types": "./dist/index.d.ts",
   "exports": {
-    "import": {
-      "import": "./esm/index.js"
-    },
-    "require": {
-      "require": "./dist/index.js"
+    ".": {
+      "import": "./esm/index.js",
+      "node": "./dist/index.js",
+      "browser": "./esm/browser.js",
+      "require": "./dist/browser.js"
     }
   },
   "repository": "GMOD/generic-filehandle2",
@@ -65,7 +65,7 @@
     "access": "public"
   },
   "browser": {
-    "./dist/localFile.js": false,
-    "./esm/localFile.js": false
+    "fs/promises": false,
+    "fs": false
   }
 }
