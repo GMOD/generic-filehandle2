@@ -6,19 +6,12 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "browser": "./esm/index.js",
-        "default": "./esm/index.js"
+      "browser": {
+        "import": "./esm/browser.js",
+        "require": "./dist/browser.js"
       },
-      "require": {
-        "browser": "./dist/index.js",
-        "default": "./dist/index.js"
-      }
-    },
-    "./localFile": {
-      "browser": null,
-      "import": "./esm/localFile.js",
-      "require": "./dist/localFile.js"
+      "import": "./esm/index.js",
+      "require": "./dist/index.js"
     }
   },
   "repository": "GMOD/generic-filehandle2",
