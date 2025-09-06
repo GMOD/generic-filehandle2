@@ -11,10 +11,18 @@ export default class LocalFile implements GenericFilehandle {
 
   public async read(length: number, position = 0) {
     const arr = new Uint8Array(length)
-    const fd = await open(this.filename, 'r')
-    const res = await fd.read(arr, 0, length, position)
-    await fd.close()
-    return res.buffer.subarray(0, res.bytesRead)
+    let fd // Declare fd outside the try block so it's accessible in finally
+    try {
+      fd = await open(this.filename, 'r')
+      const res = await fd.read(arr, 0, length, position)
+      return res.buffer.subarray(0, res.bytesRead)
+    } finally {
+      // This block will always execute, regardless of success or error
+      if (fd) {
+        // Only close if the fd was successfully opened
+        await fd.close()
+      }
+    }
   }
 
   public async readFile(): Promise<Uint8Array<ArrayBuffer>>
