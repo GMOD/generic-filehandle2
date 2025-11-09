@@ -1,9 +1,10 @@
 import eslint from '@eslint/js'
+import { defineConfig } from 'eslint/config'
 import eslintPluginUnicorn from 'eslint-plugin-unicorn'
 import importPlugin from 'eslint-plugin-import'
 import tseslint from 'typescript-eslint'
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       'webpack.config.js',
@@ -105,6 +106,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-type-parameters': 'off',
 
       'import/no-unresolved': 'off',
+      'import/extensions': ['error', 'ignorePackages'],
       'import/order': [
         'error',
         {

@@ -3,7 +3,7 @@ import { TextDecoder } from 'util'
 
 import { expect, test } from 'vitest'
 
-import { BlobFile } from '../src/'
+import { BlobFile } from '../src/index.ts'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)

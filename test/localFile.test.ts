@@ -2,7 +2,7 @@ import { TextDecoder } from 'util'
 
 import { expect, test } from 'vitest'
 
-import { LocalFile } from '../src/'
+import { LocalFile } from '../src/index.ts'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)

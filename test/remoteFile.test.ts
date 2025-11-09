@@ -3,7 +3,7 @@ import { TextDecoder } from 'util'
 import rangeParser from 'range-parser'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { LocalFile, RemoteFile } from '../src/'
+import { LocalFile, RemoteFile } from '../src/index.ts'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)

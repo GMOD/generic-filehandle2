@@ -2,7 +2,7 @@ import { TextDecoder } from 'util'
 
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { RemoteFile } from '../src/'
+import { RemoteFile } from '../src/index.ts'
 
 function toString(a: Uint8Array<ArrayBuffer>) {
   return new TextDecoder('utf8').decode(a)
