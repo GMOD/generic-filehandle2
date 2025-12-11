@@ -98,9 +98,8 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
-      const resData = 'bytes' in res
-        ? await res.bytes()
-        : new Uint8Array(await res.arrayBuffer())
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      const resData = res.bytes ? await res.bytes() : new Uint8Array(await res.arrayBuffer())
       return resData.byteLength <= length ? resData : resData.subarray(0, length)
     }
 
@@ -161,9 +160,8 @@ export default class RemoteFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
-      return 'bytes' in res
-        ? res.bytes()
-        : new Uint8Array(await res.arrayBuffer())
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      return res.bytes ? res.bytes() : new Uint8Array(await res.arrayBuffer())
     }
   }
 
