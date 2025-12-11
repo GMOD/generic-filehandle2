@@ -89,8 +89,6 @@ export default class RemoteFile implements GenericFilehandle {
     }
 
     if ((res.status === 200 && position === 0) || res.status === 206) {
-      const resData = await res.arrayBuffer()
-
       // try to parse out the size of the remote file
       const contentRange = res.headers.get('content-range')
       const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
@@ -100,9 +98,10 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
-      return resData.byteLength <= length
-        ? new Uint8Array(resData)
-        : new Uint8Array(resData.slice(0, length))
+      const resData = 'bytes' in res
+        ? await res.bytes()
+        : new Uint8Array(await res.arrayBuffer())
+      return resData.byteLength <= length ? resData : resData.subarray(0, length)
     }
 
     throw new Error(
@@ -162,7 +161,9 @@ export default class RemoteFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
-      return new Uint8Array(await res.arrayBuffer())
+      return 'bytes' in res
+        ? res.bytes()
+        : new Uint8Array(await res.arrayBuffer())
     }
   }
 
