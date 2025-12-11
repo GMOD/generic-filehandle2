@@ -66,7 +66,7 @@ export default class RemoteFile implements GenericFilehandle {
   ): Promise<Uint8Array<ArrayBuffer>> {
     const { headers = {}, signal, overrides = {} } = opts
     if (length < Infinity) {
-      headers.range = `bytes=${position}-${position + length}`
+      headers.range = `bytes=${position}-${position + length - 1}`
     } else if (length === Infinity && position !== 0) {
       headers.range = `bytes=${position}-`
     }
@@ -74,9 +74,9 @@ export default class RemoteFile implements GenericFilehandle {
       ...this.baseOverrides,
       ...overrides,
       headers: {
-        ...headers,
-        ...overrides.headers,
         ...this.baseOverrides.headers,
+        ...overrides.headers,
+        ...headers,
       },
       method: 'GET',
       redirect: 'follow',
@@ -100,7 +100,9 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
-      return new Uint8Array(resData.slice(0, length))
+      return resData.byteLength <= length
+        ? new Uint8Array(resData)
+        : new Uint8Array(resData.slice(0, length))
     }
 
     // eslint-disable-next-line unicorn/prefer-ternary
@@ -136,8 +138,8 @@ export default class RemoteFile implements GenericFilehandle {
       opts = {}
     } else {
       encoding = options.encoding
-      opts = options
-      delete opts.encoding
+      const { encoding: _, ...rest } = options
+      opts = rest
     }
     const { headers = {}, signal, overrides = {} } = opts
     const res = await this.fetch(this.url, {
