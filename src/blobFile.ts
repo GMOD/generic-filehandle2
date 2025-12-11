@@ -12,11 +12,9 @@ import type {
  */
 export default class BlobFile implements GenericFilehandle {
   private blob: Blob
-  private size: number
 
   public constructor(blob: Blob) {
     this.blob = blob
-    this.size = blob.size
   }
 
   public async read(
@@ -32,7 +30,9 @@ export default class BlobFile implements GenericFilehandle {
     const start = position
     const end = start + length
 
-    return new Uint8Array(await this.blob.slice(start, end).arrayBuffer())
+    const slice = this.blob.slice(start, end)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    return slice.bytes ? slice.bytes() : new Uint8Array(await slice.arrayBuffer())
   }
 
   public async readFile(): Promise<Uint8Array<ArrayBuffer>>
@@ -54,12 +54,13 @@ export default class BlobFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
-      return new Uint8Array(await this.blob.arrayBuffer())
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      return this.blob.bytes ? this.blob.bytes() : new Uint8Array(await this.blob.arrayBuffer())
     }
   }
 
   public async stat(): Promise<Stats> {
-    return { size: this.size }
+    return { size: this.blob.size }
   }
 
   public async close(): Promise<void> {

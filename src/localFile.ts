@@ -38,8 +38,7 @@ export default class LocalFile implements GenericFilehandle {
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {
-    const res = await readFile(this.filename, options)
-    return typeof res === 'string' ? res : new Uint8Array(res)
+    return readFile(this.filename, options)
   }
 
   public async stat() {

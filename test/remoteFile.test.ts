@@ -107,7 +107,7 @@ test('reads remote partially', async () => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
-    const len = end - start
+    const len = end - start + 1
     const buf = await file.read(len, start)
     const stat = await file.stat()
 
@@ -126,7 +126,7 @@ test('reads remote clipped at the end', async () => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
-    const len = end - start
+    const len = end - start + 1
     const buf = await file.read(len, start)
     const stat = await file.stat()
 
@@ -165,7 +165,7 @@ test('zero read', async () => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
-    const len = end - start
+    const len = end - start + 1
     const buf = await file.read(len, start)
     const stat = await file.stat()
 
@@ -184,7 +184,7 @@ test('stat', async () => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
-    const len = end - start
+    const len = end - start + 1
     const buf = await file.read(len, start)
     const stat = await file.stat()
 
