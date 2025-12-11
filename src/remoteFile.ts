@@ -105,12 +105,11 @@ export default class RemoteFile implements GenericFilehandle {
         : new Uint8Array(resData.slice(0, length))
     }
 
-    // eslint-disable-next-line unicorn/prefer-ternary
-    if (res.status === 200) {
-      throw new Error(`${this.url} fetch returned status 200, expected 206`)
-    } else {
-      throw new Error(`HTTP ${res.status} fetching ${this.url}`)
-    }
+    throw new Error(
+      res.status === 200
+        ? `${this.url} fetch returned status 200, expected 206`
+        : `HTTP ${res.status} fetching ${this.url}`,
+    )
   }
 
   public async readFile(): Promise<Uint8Array<ArrayBuffer>>
@@ -143,13 +142,17 @@ export default class RemoteFile implements GenericFilehandle {
     }
     const { headers = {}, signal, overrides = {} } = opts
     const res = await this.fetch(this.url, {
-      headers,
+      ...this.baseOverrides,
+      ...overrides,
+      headers: {
+        ...this.baseOverrides.headers,
+        ...overrides.headers,
+        ...headers,
+      },
       method: 'GET',
       redirect: 'follow',
       mode: 'cors',
       signal,
-      ...this.baseOverrides,
-      ...overrides,
     })
     if (res.status !== 200) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
