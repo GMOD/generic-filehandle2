@@ -10,6 +10,9 @@ export default class LocalFile implements GenericFilehandle {
   }
 
   public async read(length: number, position = 0) {
+    if (length === 0) {
+      return new Uint8Array(0)
+    }
     const arr = new Uint8Array(length)
     let fd // Declare fd outside the try block so it's accessible in finally
     try {
