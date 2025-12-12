@@ -146,7 +146,7 @@ test('throws error', async () => {
   })
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
-  const res = f.read(0, 0)
+  const res = f.read(10, 0)
   await expect(res).rejects.toThrow(/HTTP 500/)
 })
 
@@ -156,7 +156,7 @@ test('throws error if file missing', async () => {
   })
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
-  const res = f.read(0, 0)
+  const res = f.read(10, 0)
   await expect(res).rejects.toThrow(/HTTP 404/)
 })
 

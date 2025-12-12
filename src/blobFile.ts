@@ -32,7 +32,9 @@ export default class BlobFile implements GenericFilehandle {
 
     const slice = this.blob.slice(start, end)
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    return slice.bytes ? slice.bytes() : new Uint8Array(await slice.arrayBuffer())
+    return slice.bytes
+      ? slice.bytes()
+      : new Uint8Array(await slice.arrayBuffer())
   }
 
   public async readFile(): Promise<Uint8Array<ArrayBuffer>>
@@ -55,7 +57,9 @@ export default class BlobFile implements GenericFilehandle {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return this.blob.bytes ? this.blob.bytes() : new Uint8Array(await this.blob.arrayBuffer())
+      return this.blob.bytes
+        ? this.blob.bytes()
+        : new Uint8Array(await this.blob.arrayBuffer())
     }
   }
 

@@ -102,8 +102,12 @@ export default class RemoteFile implements GenericFilehandle {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      const resData = res.bytes ? await res.bytes() : new Uint8Array(await res.arrayBuffer())
-      return resData.byteLength <= length ? resData : resData.subarray(0, length)
+      const resData = res.bytes
+        ? await res.bytes()
+        : new Uint8Array(await res.arrayBuffer())
+      return resData.byteLength <= length
+        ? resData
+        : resData.subarray(0, length)
     }
 
     throw new Error(
