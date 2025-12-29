@@ -14,16 +14,19 @@ export default class LocalFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
     const arr = new Uint8Array(length)
-    let fd // Declare fd outside the try block so it's accessible in finally
+    let fd
     try {
       fd = await open(this.filename, 'r')
       const res = await fd.read(arr, 0, length, position)
       return res.buffer.subarray(0, res.bytesRead)
     } finally {
-      // This block will always execute, regardless of success or error
       if (fd) {
-        // Only close if the fd was successfully opened
-        await fd.close()
+        try {
+          await fd.close()
+        } catch {
+          // Ignore EBADF errors - the file descriptor is already closed/invalid
+          // This can happen on network filesystems like Samba
+        }
       }
     }
   }
