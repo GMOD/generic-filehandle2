@@ -41,6 +41,11 @@ export default class LocalFile implements GenericFilehandle {
   public async readFile<T extends BufferEncoding>(
     options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
   ): Promise<string>
+  readFile<T extends BufferEncoding>(
+    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
+  ): T extends BufferEncoding
+    ? Promise<string>
+    : Promise<Uint8Array<ArrayBuffer>>
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {

@@ -44,8 +44,8 @@ export interface GenericFilehandle {
   readFile<T extends BufferEncoding>(
     options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
   ): T extends BufferEncoding
-    ? Promise<Uint8Array<ArrayBuffer>>
-    : Promise<Uint8Array<ArrayBuffer> | string>
+    ? Promise<string>
+    : Promise<Uint8Array<ArrayBuffer>>
   stat(): Promise<Stats>
   close(): Promise<void>
 }

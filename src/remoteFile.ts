@@ -32,12 +32,15 @@ export default class RemoteFile implements GenericFilehandle {
     input: RequestInfo,
     init: RequestInit | undefined,
   ): Promise<Response> {
+    const wrapError = (e: unknown) =>
+      new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
+
     let response
     try {
       response = await this.fetchImplementation(input, init)
     } catch (e) {
       if (`${e}`.includes('Failed to fetch')) {
-        // refetch to to help work around a chrome bug (discussed in
+        // refetch to help work around a chrome bug (discussed in
         // generic-filehandle issue #72) in which the chrome cache returns a
         // CORS error for content in its cache.  see also
         // https://github.com/GMOD/jbrowse-components/pull/1511
@@ -50,10 +53,10 @@ export default class RemoteFile implements GenericFilehandle {
             cache: 'reload',
           })
         } catch (e) {
-          throw new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
+          throw wrapError(e)
         }
       } else {
-        throw new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
+        throw wrapError(e)
       }
     }
     return response
@@ -130,8 +133,8 @@ export default class RemoteFile implements GenericFilehandle {
   readFile<T extends BufferEncoding>(
     options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
   ): T extends BufferEncoding
-    ? Promise<Uint8Array<ArrayBuffer>>
-    : Promise<Uint8Array<ArrayBuffer> | string>
+    ? Promise<string>
+    : Promise<Uint8Array<ArrayBuffer>>
   public async readFile(
     options: FilehandleOptions | BufferEncoding = {},
   ): Promise<Uint8Array<ArrayBuffer> | string> {
@@ -159,7 +162,7 @@ export default class RemoteFile implements GenericFilehandle {
       mode: 'cors',
       signal,
     })
-    if (res.status !== 200) {
+    if (!res.ok) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
     if (encoding === 'utf8') {
