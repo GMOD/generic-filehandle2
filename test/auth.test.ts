@@ -53,7 +53,7 @@ afterEach(() => {
 })
 
 test('auth token', async () => {
-  mockFetch = vi.fn().mockImplementation(async (_url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (_url: string, args: { headers: Record<string, string> }) => {
     return args.headers.Authorization
       ? createResponse('hello world', 200)
       : createResponse('Unauthorized', 403)
@@ -72,7 +72,7 @@ test('auth token', async () => {
 })
 
 test('auth token with range request', async () => {
-  mockFetch = vi.fn().mockImplementation(async (_url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (_url: string, args: { headers: Record<string, string> }) => {
     if (args.headers.Authorization && args.headers.range) {
       return createResponse('hello', 206)
     } else if (!args.headers.Authorization) {

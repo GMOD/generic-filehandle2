@@ -2,6 +2,7 @@ import type {
   Fetcher,
   FilehandleOptions,
   GenericFilehandle,
+  RequestOverrides,
   Stats,
 } from './filehandle.ts'
 
@@ -17,7 +18,7 @@ export default class RemoteFile implements GenericFilehandle {
   protected url: string
   private _stat?: Stats
   private fetchImplementation: Fetcher
-  private baseOverrides: any = {}
+  private baseOverrides: RequestOverrides = {}
 
   public constructor(source: string, opts: FilehandleOptions = {}) {
     this.url = source

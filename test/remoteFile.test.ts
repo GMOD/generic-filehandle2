@@ -96,14 +96,14 @@ test('reads file with encoding', async () => {
   const fileText2 = await f.readFile({ encoding: 'utf8' })
   expect(fileText2).toEqual('testing\n')
 
-  // @ts-expect-error
+  // @ts-expect-error passing invalid encoding to test runtime error
   await expect(f.readFile('fakeEncoding')).rejects.toThrow(
     /unsupported encoding/,
   )
 })
 
 test('reads remote partially', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
@@ -122,7 +122,7 @@ test('reads remote partially', async () => {
 })
 
 test('reads remote clipped at the end', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
@@ -161,7 +161,7 @@ test('throws error if file missing', async () => {
 })
 
 test('zero read', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
@@ -180,7 +180,7 @@ test('zero read', async () => {
 })
 
 test('stat', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: any) => {
+  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
     const file = getFile(url)
     const range = rangeParser(10000, args.headers.range)
     const { start, end } = range[0]
