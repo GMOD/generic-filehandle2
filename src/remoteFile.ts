@@ -1,4 +1,5 @@
 import type {
+  BufferEncoding,
   Fetcher,
   FilehandleOptions,
   GenericFilehandle,
@@ -70,6 +71,11 @@ export default class RemoteFile implements GenericFilehandle {
   ): Promise<Uint8Array<ArrayBuffer>> {
     if (length === 0) {
       return new Uint8Array(0)
+    }
+    if (Number.isNaN(length) || Number.isNaN(position)) {
+      throw new TypeError(
+        `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
+      )
     }
     const { headers = {}, signal, overrides = {} } = opts
     if (length < Infinity) {

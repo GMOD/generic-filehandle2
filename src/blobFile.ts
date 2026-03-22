@@ -1,4 +1,5 @@
 import type {
+  BufferEncoding,
   FilehandleOptions,
   GenericFilehandle,
   Stats,

@@ -103,18 +103,22 @@ test('reads file with encoding', async () => {
 })
 
 test('reads remote partially', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
-    const file = getFile(url)
-    const range = rangeParser(10000, args.headers.range)
-    const { start, end } = range[0]
-    const len = end - start + 1
-    const buf = await file.read(len, start)
-    const stat = await file.stat()
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      async (url: string, args: { headers: Record<string, string> }) => {
+        const file = getFile(url)
+        const range = rangeParser(10000, args.headers.range)
+        const { start, end } = range[0]
+        const len = end - start + 1
+        const buf = await file.read(len, start)
+        const stat = await file.stat()
 
-    return createResponse(buf, 206, {
-      'content-range': `${start}-${end}/${stat.size}`,
-    })
-  })
+        return createResponse(buf, 206, {
+          'content-range': `${start}-${end}/${stat.size}`,
+        })
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = await f.read(3, 0)
@@ -122,18 +126,22 @@ test('reads remote partially', async () => {
 })
 
 test('reads remote clipped at the end', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
-    const file = getFile(url)
-    const range = rangeParser(10000, args.headers.range)
-    const { start, end } = range[0]
-    const len = end - start + 1
-    const buf = await file.read(len, start)
-    const stat = await file.stat()
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      async (url: string, args: { headers: Record<string, string> }) => {
+        const file = getFile(url)
+        const range = rangeParser(10000, args.headers.range)
+        const { start, end } = range[0]
+        const len = end - start + 1
+        const buf = await file.read(len, start)
+        const stat = await file.stat()
 
-    return createResponse(buf, 206, {
-      'content-range': `${start}-${end}/${stat.size}`,
-    })
-  })
+        return createResponse(buf, 206, {
+          'content-range': `${start}-${end}/${stat.size}`,
+        })
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = await f.read(3, 6)
@@ -160,19 +168,29 @@ test('throws error if file missing', async () => {
   await expect(res).rejects.toThrow(/HTTP 404/)
 })
 
-test('zero read', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
-    const file = getFile(url)
-    const range = rangeParser(10000, args.headers.range)
-    const { start, end } = range[0]
-    const len = end - start + 1
-    const buf = await file.read(len, start)
-    const stat = await file.stat()
+test('throws on NaN length or position', async () => {
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  await expect(f.read(NaN, 0)).rejects.toThrow(/NaN length or position/)
+  await expect(f.read(10, NaN)).rejects.toThrow(/NaN length or position/)
+})
 
-    return createResponse(buf, 206, {
-      'content-range': `${start}-${end}/${stat.size}`,
-    })
-  })
+test('zero read', async () => {
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      async (url: string, args: { headers: Record<string, string> }) => {
+        const file = getFile(url)
+        const range = rangeParser(10000, args.headers.range)
+        const { start, end } = range[0]
+        const len = end - start + 1
+        const buf = await file.read(len, start)
+        const stat = await file.stat()
+
+        return createResponse(buf, 206, {
+          'content-range': `${start}-${end}/${stat.size}`,
+        })
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = toString(await f.read(0, 0))
@@ -180,18 +198,22 @@ test('zero read', async () => {
 })
 
 test('stat', async () => {
-  mockFetch = vi.fn().mockImplementation(async (url: string, args: { headers: Record<string, string> }) => {
-    const file = getFile(url)
-    const range = rangeParser(10000, args.headers.range)
-    const { start, end } = range[0]
-    const len = end - start + 1
-    const buf = await file.read(len, start)
-    const stat = await file.stat()
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      async (url: string, args: { headers: Record<string, string> }) => {
+        const file = getFile(url)
+        const range = rangeParser(10000, args.headers.range)
+        const { start, end } = range[0]
+        const len = end - start + 1
+        const buf = await file.read(len, start)
+        const stat = await file.stat()
 
-    return createResponse(buf, 206, {
-      'content-range': `${start}-${end}/${stat.size}`,
-    })
-  })
+        return createResponse(buf, 206, {
+          'content-range': `${start}-${end}/${stat.size}`,
+        })
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const stat = await f.stat()

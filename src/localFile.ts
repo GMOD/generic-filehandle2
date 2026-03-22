@@ -1,6 +1,10 @@
 import { open, readFile, stat } from 'fs/promises'
 
-import type { FilehandleOptions, GenericFilehandle } from './filehandle.ts'
+import type {
+  BufferEncoding,
+  FilehandleOptions,
+  GenericFilehandle,
+} from './filehandle.ts'
 
 export default class LocalFile implements GenericFilehandle {
   private filename: string

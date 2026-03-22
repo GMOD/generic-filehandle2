@@ -49,7 +49,10 @@ export default defineConfig(
       curly: 'error',
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/ban-ts-comment': ['error', { 'ts-expect-error': 'allow-with-description', 'ts-ignore': true }],
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-expect-error': 'allow-with-description', 'ts-ignore': true },
+      ],
       semi: ['error', 'never'],
       'unicorn/no-new-array': 'off',
       'unicorn/no-empty-file': 'off',
