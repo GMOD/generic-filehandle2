@@ -4,6 +4,7 @@ import type {
   BufferEncoding,
   FilehandleOptions,
   GenericFilehandle,
+  Stats,
 } from './filehandle.ts'
 
 export default class LocalFile implements GenericFilehandle {
@@ -56,7 +57,7 @@ export default class LocalFile implements GenericFilehandle {
     return readFile(this.filename, options)
   }
 
-  public async stat() {
+  public async stat(): Promise<Stats> {
     return stat(this.filename)
   }
 

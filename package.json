@@ -37,7 +37,7 @@
     "format": "prettier --write .",
     "prebuild": "yarn clean",
     "build:esm": "tsc --outDir esm",
-    "build:es5": "tsc --module commonjs --outDir dist",
+    "build:es5": "tsc --module commonjs --moduleResolution bundler --outDir dist",
     "build": "yarn build:esm && yarn build:es5",
     "postbuild:es5": "echo '{\"type\": \"commonjs\"}' > dist/package.json",
     "preversion": "yarn lint && yarn test --run && yarn build",
@@ -53,17 +53,17 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",
     "@types/range-parser": "^1.2.7",
-    "@vitest/coverage-v8": "^4.0.15",
-    "eslint": "^9.16.0",
-    "eslint-plugin-import": "^2.31.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^9.39.4",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-unicorn": "^64.0.0",
-    "prettier": "^3.4.1",
+    "prettier": "^3.8.1",
     "range-parser": "^1.2.1",
-    "rimraf": "^6.0.0",
+    "rimraf": "^6.1.3",
     "standard-changelog": "^7.0.1",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.18.0",
-    "vitest": "^4.0.15"
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.2"
   },
   "publishConfig": {
     "access": "public"
