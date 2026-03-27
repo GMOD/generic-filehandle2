@@ -9,7 +9,7 @@ import type {
 export default class LocalFile implements GenericFilehandle {
   private filename: string
 
-  public constructor(source: string, _opts: FilehandleOptions = {}) {
+  public constructor(source: string) {
     this.filename = source
   }
 

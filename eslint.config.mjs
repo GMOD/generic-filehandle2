@@ -48,13 +48,20 @@ export default defineConfig(
       'no-underscore-dangle': 'off',
       curly: 'error',
       eqeqeq: 'error',
+      semi: ['error', 'never'],
+
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': [
         'error',
         { 'ts-expect-error': 'allow-with-description', 'ts-ignore': true },
       ],
-      semi: ['error', 'never'],
+
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-base-to-string': 'off',
+      '@typescript-eslint/no-unnecessary-type-parameters': 'off',
+
       'unicorn/no-new-array': 'off',
       'unicorn/no-empty-file': 'off',
       'unicorn/prefer-type-error': 'off',
@@ -95,10 +102,6 @@ export default defineConfig(
       'unicorn/no-process-exit': 'off',
       'unicorn/prefer-at': 'off',
       'unicorn/prefer-blob-reading-methods': 'off',
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/no-base-to-string': 'off',
-      '@typescript-eslint/no-unnecessary-type-parameters': 'off',
 
       'import/no-unresolved': 'off',
       'import/extensions': ['error', 'ignorePackages'],

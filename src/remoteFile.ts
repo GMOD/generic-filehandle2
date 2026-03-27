@@ -22,10 +22,12 @@ export default class RemoteFile implements GenericFilehandle {
   private _stat?: Stats
   private fetchImplementation: Fetcher
   private baseHeaders: Record<string, string>
+  private baseOverrides: Omit<RequestInit, 'headers'>
 
   public constructor(source: string, opts: FilehandleOptions = {}) {
     this.url = source
     this.baseHeaders = opts.headers ?? {}
+    this.baseOverrides = opts.overrides ?? {}
     this.fetchImplementation =
       opts.fetch ??
       ((input: RequestInfo, init?: RequestInit) =>
@@ -79,13 +81,11 @@ export default class RemoteFile implements GenericFilehandle {
         `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
-    const { headers = {}, signal } = opts
-    if (length < Infinity) {
-      headers.range = `bytes=${position}-${position + length - 1}`
-    } else if (length === Infinity && position !== 0) {
-      headers.range = `bytes=${position}-`
-    }
+    const { headers = {}, signal, overrides = {} } = opts
+    headers.range = `bytes=${position}-${position + length - 1}`
     const res = await this.fetch(this.url, {
+      ...this.baseOverrides,
+      ...overrides,
       headers: { ...this.baseHeaders, ...headers },
       method: 'GET',
       redirect: 'follow',
@@ -143,8 +143,10 @@ export default class RemoteFile implements GenericFilehandle {
   ): Promise<Uint8Array<ArrayBuffer> | string> {
     const encoding = typeof options === 'string' ? options : options.encoding
     const opts = typeof options === 'string' ? {} : options
-    const { headers = {}, signal } = opts
+    const { headers = {}, signal, overrides = {} } = opts
     const res = await this.fetch(this.url, {
+      ...this.baseOverrides,
+      ...overrides,
       headers: { ...this.baseHeaders, ...headers },
       method: 'GET',
       redirect: 'follow',

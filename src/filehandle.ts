@@ -21,6 +21,7 @@ export type Fetcher = (
 export interface FilehandleOptions {
   signal?: AbortSignal
   headers?: Record<string, string>
+  overrides?: Omit<RequestInit, 'headers'>
   encoding?: BufferEncoding
   fetch?: Fetcher
 }

@@ -28,10 +28,7 @@ export default class BlobFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
 
-    const start = position
-    const end = start + length
-
-    const slice = this.blob.slice(start, end)
+    const slice = this.blob.slice(position, position + length)
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     return slice.bytes
       ? slice.bytes()

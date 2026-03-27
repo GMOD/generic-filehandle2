@@ -50,17 +50,18 @@
     "genomics"
   ],
   "devDependencies": {
-    "@types/node": "^24.3.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.5.0",
     "@types/range-parser": "^1.2.7",
     "@vitest/coverage-v8": "^4.0.15",
     "eslint": "^9.16.0",
     "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-unicorn": "^62.0.0",
+    "eslint-plugin-unicorn": "^64.0.0",
     "prettier": "^3.4.1",
     "range-parser": "^1.2.1",
     "rimraf": "^6.0.0",
     "standard-changelog": "^7.0.1",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "typescript-eslint": "^8.18.0",
     "vitest": "^4.0.15"
   },
