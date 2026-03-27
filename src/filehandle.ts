@@ -18,23 +18,10 @@ export type Fetcher = (
   init?: RequestInit,
 ) => Promise<Response>
 
-export type RequestOverrides = Omit<RequestInit, 'headers'> & {
-  headers?: Record<string, string>
-}
-
 export interface FilehandleOptions {
-  /**
-   * optional AbortSignal object for aborting the request
-   */
   signal?: AbortSignal
   headers?: Record<string, string>
-  overrides?: RequestOverrides
   encoding?: BufferEncoding
-  /**
-   * fetch function to use for HTTP requests. defaults to environment's
-   * global fetch. if there is no global fetch, and a fetch function is not provided,
-   * throws an error.
-   */
   fetch?: Fetcher
 }
 

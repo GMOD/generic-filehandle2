@@ -3,14 +3,16 @@ import type {
   Fetcher,
   FilehandleOptions,
   GenericFilehandle,
-  RequestOverrides,
   Stats,
 } from './filehandle.ts'
 
 function getMessage(e: unknown) {
   const r =
-    typeof e === 'object' && e !== null && 'message' in e
-      ? (e.message as string)
+    typeof e === 'object' &&
+    e !== null &&
+    'message' in e &&
+    typeof e.message === 'string'
+      ? e.message
       : `${e}`
   return r.replace(/\.$/, '')
 }
@@ -19,15 +21,15 @@ export default class RemoteFile implements GenericFilehandle {
   protected url: string
   private _stat?: Stats
   private fetchImplementation: Fetcher
-  private baseOverrides: RequestOverrides = {}
+  private baseHeaders: Record<string, string>
 
   public constructor(source: string, opts: FilehandleOptions = {}) {
     this.url = source
-    const fetch = opts.fetch || globalThis.fetch.bind(globalThis)
-    if (opts.overrides) {
-      this.baseOverrides = opts.overrides
-    }
-    this.fetchImplementation = fetch
+    this.baseHeaders = opts.headers ?? {}
+    this.fetchImplementation =
+      opts.fetch ??
+      ((input: RequestInfo, init?: RequestInit) =>
+        globalThis.fetch(input, init))
   }
 
   public async fetch(
@@ -77,20 +79,14 @@ export default class RemoteFile implements GenericFilehandle {
         `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
-    const { headers = {}, signal, overrides = {} } = opts
+    const { headers = {}, signal } = opts
     if (length < Infinity) {
       headers.range = `bytes=${position}-${position + length - 1}`
     } else if (length === Infinity && position !== 0) {
       headers.range = `bytes=${position}-`
     }
     const res = await this.fetch(this.url, {
-      ...this.baseOverrides,
-      ...overrides,
-      headers: {
-        ...this.baseOverrides.headers,
-        ...overrides.headers,
-        ...headers,
-      },
+      headers: { ...this.baseHeaders, ...headers },
       method: 'GET',
       redirect: 'follow',
       mode: 'cors',
@@ -104,7 +100,7 @@ export default class RemoteFile implements GenericFilehandle {
     if ((res.status === 200 && position === 0) || res.status === 206) {
       // try to parse out the size of the remote file
       const contentRange = res.headers.get('content-range')
-      const sizeMatch = /\/(\d+)$/.exec(contentRange || '')
+      const sizeMatch = /\/(\d+)$/.exec(contentRange ?? '')
       if (sizeMatch?.[1]) {
         this._stat = {
           size: parseInt(sizeMatch[1], 10),
@@ -145,25 +141,11 @@ export default class RemoteFile implements GenericFilehandle {
   public async readFile(
     options: FilehandleOptions | BufferEncoding = {},
   ): Promise<Uint8Array<ArrayBuffer> | string> {
-    let encoding
-    let opts
-    if (typeof options === 'string') {
-      encoding = options
-      opts = {}
-    } else {
-      encoding = options.encoding
-      const { encoding: _, ...rest } = options
-      opts = rest
-    }
-    const { headers = {}, signal, overrides = {} } = opts
+    const encoding = typeof options === 'string' ? options : options.encoding
+    const opts = typeof options === 'string' ? {} : options
+    const { headers = {}, signal } = opts
     const res = await this.fetch(this.url, {
-      ...this.baseOverrides,
-      ...overrides,
-      headers: {
-        ...this.baseOverrides.headers,
-        ...overrides.headers,
-        ...headers,
-      },
+      headers: { ...this.baseHeaders, ...headers },
       method: 'GET',
       redirect: 'follow',
       mode: 'cors',
@@ -193,7 +175,7 @@ export default class RemoteFile implements GenericFilehandle {
     return this._stat
   }
 
-  public async close(): Promise<void> {
-    return
+  public close(): Promise<void> {
+    return Promise.resolve()
   }
 }

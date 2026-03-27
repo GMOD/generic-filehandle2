@@ -23,21 +23,21 @@ function createResponse(
     status,
     headers: {
       get(name: string) {
-        return headers[name] || null
+        return headers[name] ?? null
       },
     },
-    arrayBuffer: async () => {
+    arrayBuffer: () => {
       if (typeof body === 'string') {
         const encoder = new TextEncoder()
-        return encoder.encode(body).buffer
+        return Promise.resolve(encoder.encode(body).buffer)
       }
-      return body.buffer
+      return Promise.resolve(body.buffer)
     },
-    text: async () => {
+    text: () => {
       if (typeof body === 'string') {
-        return body
+        return Promise.resolve(body)
       }
-      return toString(body)
+      return Promise.resolve(toString(body))
     },
   }
 }
@@ -47,7 +47,7 @@ let mockFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
 beforeEach(() => {
   // Reset the mock fetch implementation before each test
-  mockFetch = vi.fn().mockImplementation(async (url: string) => {
+  mockFetch = vi.fn().mockImplementation((url: string) => {
     throw new Error(`Unhandled fetch request to ${url}`)
   })
 })
@@ -108,8 +108,15 @@ test('reads remote partially', async () => {
     .mockImplementation(
       async (url: string, args: { headers: Record<string, string> }) => {
         const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range)
-        const { start, end } = range[0]
+        const range = rangeParser(10000, args.headers.range ?? '')
+        if (!Array.isArray(range)) {
+          throw new Error('unexpected invalid range')
+        }
+        const first = range[0]
+        if (!first) {
+          throw new Error('unexpected empty range')
+        }
+        const { start, end } = first
         const len = end - start + 1
         const buf = await file.read(len, start)
         const stat = await file.stat()
@@ -131,8 +138,15 @@ test('reads remote clipped at the end', async () => {
     .mockImplementation(
       async (url: string, args: { headers: Record<string, string> }) => {
         const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range)
-        const { start, end } = range[0]
+        const range = rangeParser(10000, args.headers.range ?? '')
+        if (!Array.isArray(range)) {
+          throw new Error('unexpected invalid range')
+        }
+        const first = range[0]
+        if (!first) {
+          throw new Error('unexpected empty range')
+        }
+        const { start, end } = first
         const len = end - start + 1
         const buf = await file.read(len, start)
         const stat = await file.stat()
@@ -149,7 +163,7 @@ test('reads remote clipped at the end', async () => {
 })
 
 test('throws error', async () => {
-  mockFetch = vi.fn().mockImplementation(async () => {
+  mockFetch = vi.fn().mockImplementation(() => {
     return createResponse('', 500)
   })
 
@@ -159,7 +173,7 @@ test('throws error', async () => {
 })
 
 test('throws error if file missing', async () => {
-  mockFetch = vi.fn().mockImplementation(async () => {
+  mockFetch = vi.fn().mockImplementation(() => {
     return createResponse('Not Found', 404)
   })
 
@@ -180,8 +194,15 @@ test('zero read', async () => {
     .mockImplementation(
       async (url: string, args: { headers: Record<string, string> }) => {
         const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range)
-        const { start, end } = range[0]
+        const range = rangeParser(10000, args.headers.range ?? '')
+        if (!Array.isArray(range)) {
+          throw new Error('unexpected invalid range')
+        }
+        const first = range[0]
+        if (!first) {
+          throw new Error('unexpected empty range')
+        }
+        const { start, end } = first
         const len = end - start + 1
         const buf = await file.read(len, start)
         const stat = await file.stat()
@@ -203,8 +224,15 @@ test('stat', async () => {
     .mockImplementation(
       async (url: string, args: { headers: Record<string, string> }) => {
         const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range)
-        const { start, end } = range[0]
+        const range = rangeParser(10000, args.headers.range ?? '')
+        if (!Array.isArray(range)) {
+          throw new Error('unexpected invalid range')
+        }
+        const first = range[0]
+        if (!first) {
+          throw new Error('unexpected empty range')
+        }
+        const { start, end } = first
         const len = end - start + 1
         const buf = await file.read(len, start)
         const stat = await file.stat()
