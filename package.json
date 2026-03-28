@@ -24,9 +24,6 @@
     "email": "colin.diesh@gmail.com",
     "url": "https://github.com/cmdcolin"
   },
-  "engines": {
-    "node": ">=14"
-  },
   "files": [
     "dist",
     "esm",
