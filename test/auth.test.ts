@@ -19,21 +19,21 @@ function createResponse(
     status,
     headers: {
       get(name: string) {
-        return headers[name] || null
+        return headers[name] ?? null
       },
     },
-    arrayBuffer: async () => {
+    arrayBuffer: () => {
       if (typeof body === 'string') {
         const encoder = new TextEncoder()
-        return encoder.encode(body).buffer
+        return Promise.resolve(encoder.encode(body).buffer)
       }
-      return body.buffer
+      return Promise.resolve(body.buffer)
     },
-    text: async () => {
+    text: () => {
       if (typeof body === 'string') {
-        return body
+        return Promise.resolve(body)
       }
-      return toString(body)
+      return Promise.resolve(toString(body))
     },
   }
 }
@@ -43,7 +43,7 @@ let mockFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 
 beforeEach(() => {
   // Reset the mock fetch implementation before each test
-  mockFetch = vi.fn().mockImplementation(async (url: string) => {
+  mockFetch = vi.fn().mockImplementation((url: string) => {
     throw new Error(`Unhandled fetch request to ${url}`)
   })
 })
@@ -53,18 +53,20 @@ afterEach(() => {
 })
 
 test('auth token', async () => {
-  mockFetch = vi.fn().mockImplementation(async (_url: string, args: any) => {
-    return args.headers.Authorization
-      ? createResponse('hello world', 200)
-      : createResponse('Unauthorized', 403)
-  })
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      (_url: string, args: { headers: Record<string, string> }) => {
+        return args.headers.Authorization
+          ? createResponse('hello world', 200)
+          : createResponse('Unauthorized', 403)
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', {
     fetch: mockFetch,
-    overrides: {
-      headers: {
-        Authorization: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l',
-      },
+    headers: {
+      Authorization: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l',
     },
   })
   const stat = await f.readFile('utf8')
@@ -72,23 +74,25 @@ test('auth token', async () => {
 })
 
 test('auth token with range request', async () => {
-  mockFetch = vi.fn().mockImplementation(async (_url: string, args: any) => {
-    if (args.headers.Authorization && args.headers.range) {
-      return createResponse('hello', 206)
-    } else if (!args.headers.Authorization) {
-      return createResponse('Unauthorized', 403)
-    } else if (!args.headers.Range) {
-      return createResponse('Bad Request', 400)
-    }
-    return createResponse('Unknown error', 500)
-  })
+  mockFetch = vi
+    .fn()
+    .mockImplementation(
+      (_url: string, args: { headers: Record<string, string> }) => {
+        if (args.headers.Authorization && args.headers.range) {
+          return createResponse('hello', 206)
+        } else if (!args.headers.Authorization) {
+          return createResponse('Unauthorized', 403)
+        } else if (!args.headers.Range) {
+          return createResponse('Bad Request', 400)
+        }
+        return createResponse('Unknown error', 500)
+      },
+    )
 
   const f = new RemoteFile('http://fakehost/test.txt', {
     fetch: mockFetch,
-    overrides: {
-      headers: {
-        Authorization: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l',
-      },
+    headers: {
+      Authorization: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l',
     },
   })
   const buffer = await f.read(5, 0)
