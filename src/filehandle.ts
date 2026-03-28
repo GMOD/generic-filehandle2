@@ -24,6 +24,7 @@ export interface FilehandleOptions {
   overrides?: Omit<RequestInit, 'headers'>
   encoding?: BufferEncoding
   fetch?: Fetcher
+  downloadCallback?: (downloaded: number, total: number) => void
 }
 
 export interface Stats {

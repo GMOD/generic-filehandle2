@@ -107,6 +107,28 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
+      const { downloadCallback } = opts
+      if (downloadCallback && res.body) {
+        const total = parseInt(res.headers.get('content-length') ?? '0', 10)
+        const reader = res.body.getReader()
+        const chunks: Uint8Array[] = []
+        let downloaded = 0
+        let result = await reader.read()
+        while (!result.done) {
+          chunks.push(result.value)
+          downloaded += result.value.byteLength
+          downloadCallback(downloaded, total)
+          result = await reader.read()
+        }
+        const resData = new Uint8Array(downloaded)
+        let offset = 0
+        for (const chunk of chunks) {
+          resData.set(chunk, offset)
+          offset += chunk.byteLength
+        }
+        return resData.byteLength <= length ? resData : resData.subarray(0, length)
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       const resData = res.bytes
         ? await res.bytes()
@@ -161,6 +183,27 @@ export default class RemoteFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
+      const { downloadCallback } = opts
+      if (downloadCallback && res.body) {
+        const total = parseInt(res.headers.get('content-length') ?? '0', 10)
+        const reader = res.body.getReader()
+        const chunks: Uint8Array[] = []
+        let downloaded = 0
+        let result = await reader.read()
+        while (!result.done) {
+          chunks.push(result.value)
+          downloaded += result.value.byteLength
+          downloadCallback(downloaded, total)
+          result = await reader.read()
+        }
+        const resData = new Uint8Array(downloaded)
+        let offset = 0
+        for (const chunk of chunks) {
+          resData.set(chunk, offset)
+          offset += chunk.byteLength
+        }
+        return resData
+      }
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       return res.bytes ? res.bytes() : new Uint8Array(await res.arrayBuffer())
     }
