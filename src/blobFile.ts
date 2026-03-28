@@ -1,4 +1,5 @@
 import type {
+  BufferEncoding,
   FilehandleOptions,
   GenericFilehandle,
   Stats,
@@ -27,10 +28,7 @@ export default class BlobFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
 
-    const start = position
-    const end = start + length
-
-    const slice = this.blob.slice(start, end)
+    const slice = this.blob.slice(position, position + length)
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     return slice.bytes
       ? slice.bytes()
@@ -63,11 +61,11 @@ export default class BlobFile implements GenericFilehandle {
     }
   }
 
-  public async stat(): Promise<Stats> {
-    return { size: this.blob.size }
+  public stat(): Promise<Stats> {
+    return Promise.resolve({ size: this.blob.size })
   }
 
-  public async close(): Promise<void> {
-    return
+  public close(): Promise<void> {
+    return Promise.resolve()
   }
 }

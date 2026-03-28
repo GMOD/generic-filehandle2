@@ -1,11 +1,16 @@
 import { open, readFile, stat } from 'fs/promises'
 
-import type { FilehandleOptions, GenericFilehandle } from './filehandle.ts'
+import type {
+  BufferEncoding,
+  FilehandleOptions,
+  GenericFilehandle,
+  Stats,
+} from './filehandle.ts'
 
 export default class LocalFile implements GenericFilehandle {
   private filename: string
 
-  public constructor(source: string, _opts: FilehandleOptions = {}) {
+  public constructor(source: string) {
     this.filename = source
   }
 
@@ -52,7 +57,7 @@ export default class LocalFile implements GenericFilehandle {
     return readFile(this.filename, options)
   }
 
-  public async stat() {
+  public async stat(): Promise<Stats> {
     return stat(this.filename)
   }
 

@@ -1,27 +1,33 @@
+// avoids needing to have @types/node as a dependency of the consuming code
+export type BufferEncoding =
+  | 'ascii'
+  | 'utf8'
+  | 'utf-8'
+  | 'utf16le'
+  | 'utf-16le'
+  | 'ucs2'
+  | 'ucs-2'
+  | 'base64'
+  | 'base64url'
+  | 'latin1'
+  | 'binary'
+  | 'hex'
+
 export type Fetcher = (
   input: RequestInfo,
   init?: RequestInit,
 ) => Promise<Response>
 
 export interface FilehandleOptions {
-  /**
-   * optional AbortSignal object for aborting the request
-   */
   signal?: AbortSignal
-  headers?: any
-  overrides?: any
+  headers?: Record<string, string>
+  overrides?: Omit<RequestInit, 'headers'>
   encoding?: BufferEncoding
-  /**
-   * fetch function to use for HTTP requests. defaults to environment's
-   * global fetch. if there is no global fetch, and a fetch function is not provided,
-   * throws an error.
-   */
   fetch?: Fetcher
 }
 
 export interface Stats {
   size: number
-  [key: string]: any
 }
 
 export interface GenericFilehandle {
