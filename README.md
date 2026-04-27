@@ -42,21 +42,25 @@ All entries are optional.
 - `signal` `<AbortSignal>` - passed to the fetch or file read call
 - `headers` `<Record<string, string>>` - extra HTTP headers for remote requests
 - `overrides` `<Object>` - extra parameters passed to the fetch call
-- `encoding` `<string>` - (`readFile` only) if set to `"utf8"`, returns a string instead of `Uint8Array`
+- `encoding` `<string>` - (`readFile` only) if set to `"utf8"`, returns a string
+  instead of `Uint8Array`
 
 ### Constructor options
 
 The `RemoteFile` constructor accepts the same Options above, plus:
 
-- `fetch` `<Function>` - custom fetch implementation (defaults to `globalThis.fetch`)
+- `fetch` `<Function>` - custom fetch implementation (defaults to
+  `globalThis.fetch`)
 
 ## See also
 
-The original generic-filehandle library: https://github.com/GMOD/generic-filehandle
+The original generic-filehandle library:
+https://github.com/GMOD/generic-filehandle
 
 ## Publishing
 
-[Trusted publishing](https://docs.npmjs.com/about-trusted-publishing) via GitHub Actions.
+[Trusted publishing](https://docs.npmjs.com/about-trusted-publishing) via GitHub
+Actions.
 
 ```bash
 npm version patch  # or minor/major
