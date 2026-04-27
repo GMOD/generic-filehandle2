@@ -32,9 +32,6 @@ importers:
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
-      range-parser:
-        specifier: ^1.2.1
-        version: 1.2.1
       rimraf:
         specifier: ^6.1.3
         version: 6.1.3
@@ -1308,10 +1305,6 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
-
-  range-parser@1.2.1:
-    resolution: {integrity: sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==}
-    engines: {node: '>= 0.6'}
 
   reflect.getprototypeof@1.0.10:
     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
@@ -3004,8 +2997,6 @@ snapshots:
   prettier@3.8.3: {}
 
   punycode@2.3.1: {}
-
-  range-parser@1.2.1: {}
 
   reflect.getprototypeof@1.0.10:
     dependencies:
