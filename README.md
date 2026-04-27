@@ -11,75 +11,45 @@ HTTP resources, and Blob data in the browser.
 ```js
 import { LocalFile, RemoteFile, BlobFile } from 'generic-filehandle2'
 
-// operate on a local file path
 const local = new LocalFile('/some/file/path/file.txt')
-
-// operate on a remote file path
 const remote = new RemoteFile('http://somesite.com/file.txt')
-
-// operate on blob objects
 const blobfile = new BlobFile(new Blob([some_data], { type: 'text/plain' }))
 
-// read slice of file, works on remote files with range request
-const buf1 = await remote.read(10, 10)
-// read whole file
+const buf1 = await remote.read(/* length */ 10, /* position */ 10) // range request
 const buf2 = await remote.readFile()
-```
-
-Important: under node.js, you should supply a fetch function to the RemoteFile
-constructor
-
-```js
-import { RemoteFile } from 'generic-filehandle2'
-import fetch from 'node-fetch'
-const remote = new RemoteFile('http://somesite.com/file.txt', { fetch })
 ```
 
 ## API
 
-### `async read(length: number, position: number=0, opts?: Options): Promise<Uint8Array>`
+### `async read(length: number, position: number, opts?: Options): Promise<Uint8Array>`
 
-- length - a length of data to read
-- position - the byte offset in the file to read from
-- opts - optional Options object
-
-Returns a Promise for the Uint8Array
+- `length` - number of bytes to read
+- `position` - byte offset to read from
 
 ### `async readFile(opts?: Options): Promise<Uint8Array | string>`
 
-Returns a Promise for Uint8Array or string containing the contents of the whole
-file.
+Returns the full file contents as a `Uint8Array`, or as a `string` if
+`opts.encoding` is set.
 
-### `async stat() : Promise<{size: number}>`
+### `async stat(): Promise<{ size: number }>`
 
-Returns a Promise for an object containing as much information about the file as
-is available. At minimum, the `size` of the file will be present.
+Returns an object with the `size` of the file.
 
 ### Options
 
-The Options object for the constructor, `read` and `readFile` can contain abort
-signal to customize behavior. All entries are optional.
+All entries are optional.
 
-- signal `<AbortSignal>` - an AbortSignal that is passed to remote file fetch()
-  API or other file readers
-- headers `<Object <string, string> >`- extra HTTP headers to pass to remote
-  file fetch() API
-- overrides `<Object>` - extra parameters to pass to the remote file fetch() API
-- fetch `<Function>` - a custom fetch callback, otherwise defaults to the
-  environment (initialized in constructor)
-- encoding `<string>` - if specified, then this function returns a string.
-  Otherwise it returns a Uint8Array. Currently only `utf8` encoding is
-  supported.
+- `signal` `<AbortSignal>` - passed to the fetch or file read call
+- `headers` `<Record<string, string>>` - extra HTTP headers for remote requests
+- `overrides` `<Object>` - extra parameters passed to the fetch call
+- `encoding` `<string>` - (`readFile` only) if set to `"utf8"`, returns a string instead of `Uint8Array`
 
-The Options object for `readFile` can also contain an entry `encoding`. The
-default is no encoding, in which case the file contents are returned as a
-Uint8Array. Currently, the only available encoding is `utf8`, and specifying
-that will cause the file contents to be returned as a string. For compatibility
-with the Node API, the `readFile` method will accept the string "utf8" instead
-of an Options object.
+### Constructor options
 
-## References
+The `RemoteFile` constructor accepts the same Options above, plus:
 
-This module attempts to modernize the original generic-filehandle API by not
-requiring node.js Buffer polyfill, and in doing so disconnected somewhat with
-the true Node.js fs API https://github.com/GMOD/generic-filehandle
+- `fetch` `<Function>` - custom fetch implementation (defaults to `globalThis.fetch`)
+
+## See also
+
+The original generic-filehandle library: https://github.com/GMOD/generic-filehandle

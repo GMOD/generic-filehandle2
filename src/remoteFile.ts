@@ -169,12 +169,10 @@ export default class RemoteFile implements GenericFilehandle {
   public async stat(): Promise<Stats> {
     if (!this._stat) {
       await this.read(10, 0)
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (!this._stat) {
-        throw new Error(`unable to determine size of file at ${this.url}`)
-      }
     }
-    return this._stat
+    // Content-Range may not be exposed due to CORS — return size 0 rather
+    // than crashing so callers can degrade gracefully.
+    return this._stat ?? { size: 0 }
   }
 
   public close(): Promise<void> {
