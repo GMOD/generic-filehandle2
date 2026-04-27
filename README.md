@@ -53,3 +53,11 @@ The `RemoteFile` constructor accepts the same Options above, plus:
 ## See also
 
 The original generic-filehandle library: https://github.com/GMOD/generic-filehandle
+
+## Publishing
+
+[Trusted publishing](https://docs.npmjs.com/about-trusted-publishing) via GitHub Actions.
+
+```bash
+npm version patch  # or minor/major
+```
