@@ -1,7 +1,7 @@
 import eslint from '@eslint/js'
 import { defineConfig } from 'eslint/config'
 import eslintPluginUnicorn from 'eslint-plugin-unicorn'
-import importPlugin from 'eslint-plugin-import'
+import importPlugin from 'eslint-plugin-import-x'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig(
@@ -103,9 +103,9 @@ export default defineConfig(
       'unicorn/prefer-at': 'off',
       'unicorn/prefer-blob-reading-methods': 'off',
 
-      'import/no-unresolved': 'off',
-      'import/extensions': ['error', 'ignorePackages'],
-      'import/order': [
+      'import-x/no-unresolved': 'off',
+      'import-x/extensions': ['error', 'ignorePackages'],
+      'import-x/order': [
         'error',
         {
           named: true,
