@@ -11,9 +11,10 @@ export class LocalFile {
   read() {
     throw new Error('unimplemented')
   }
+  stat() {
+    throw new Error('unimplemented')
+  }
   close() {
     throw new Error('unimplemented')
   }
 }
-
-export { type GenericFilehandle } from './filehandle.ts'

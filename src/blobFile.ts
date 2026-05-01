@@ -24,7 +24,7 @@ export default class BlobFile implements GenericFilehandle {
   ): Promise<Uint8Array<ArrayBuffer>> {
     // short-circuit a read of 0 bytes here, because browsers actually sometimes
     // crash if you try to read 0 bytes from a local file!
-    if (!length) {
+    if (length === 0) {
       return new Uint8Array(0)
     }
 
