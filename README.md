@@ -57,16 +57,6 @@ The `RemoteFile` constructor accepts the same Options above, plus:
 The original generic-filehandle library:
 https://github.com/GMOD/generic-filehandle
 
-## Package exports
-
-The `browser` export condition in `package.json` is intentional and load-bearing. It points to `esm/browser.js` / `dist/browser.js`, which stubs out `LocalFile` (the only class that imports from Node.js `fs/promises`). Vite, webpack, and Rollup all use this condition when building for the browser.
-
-Do not remove it or flatten it away — without it, any Vite browser build that imports from this package will fail with:
-
-```
-"open" is not exported by "__vite-browser-external"
-```
-
 ## Publishing
 
 [Trusted publishing](https://docs.npmjs.com/about-trusted-publishing) via GitHub
