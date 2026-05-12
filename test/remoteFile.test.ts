@@ -194,6 +194,9 @@ test('warns on content-encoding: gzip range response but does not throw', async 
   const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   await expect(f.read(5, 0)).resolves.toBeTruthy()
+  await expect(f.read(5, 0)).resolves.toBeTruthy()
+  await expect(f.read(5, 0)).resolves.toBeTruthy()
+  expect(warnSpy).toHaveBeenCalledTimes(1)
   expect(warnSpy).toHaveBeenCalledWith(
     expect.stringContaining('content-encoding: gzip'),
   )

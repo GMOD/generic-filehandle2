@@ -23,6 +23,7 @@ export default class RemoteFile implements GenericFilehandle {
   private fetchImplementation: Fetcher
   private baseHeaders: Record<string, string>
   private baseOverrides: Omit<RequestInit, 'headers'>
+  private warnedGzipEncoding = false
 
   public constructor(source: string, opts: FilehandleOptions = {}) {
     this.url = source
@@ -101,7 +102,11 @@ export default class RemoteFile implements GenericFilehandle {
     // requests it returns null unless the server explicitly exposes it via
     // Access-Control-Expose-Headers. The warn will fire when visible but is
     // silently skipped under typical CORS — never throws.
-    if (res.headers.get('content-encoding') === 'gzip') {
+    if (
+      !this.warnedGzipEncoding &&
+      res.headers.get('content-encoding') === 'gzip'
+    ) {
+      this.warnedGzipEncoding = true
       console.warn(
         `${this.url}: range request response has content-encoding: gzip — byte offsets will be wrong`,
       )
