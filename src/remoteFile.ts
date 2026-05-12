@@ -97,6 +97,16 @@ export default class RemoteFile implements GenericFilehandle {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
 
+    // content-encoding is not a CORS-safelisted header, so under cross-origin
+    // requests it returns null unless the server explicitly exposes it via
+    // Access-Control-Expose-Headers. The warn will fire when visible but is
+    // silently skipped under typical CORS — never throws.
+    if (res.headers.get('content-encoding') === 'gzip') {
+      console.warn(
+        `${this.url}: range request response has content-encoding: gzip — byte offsets will be wrong`,
+      )
+    }
+
     if ((res.status === 200 && position === 0) || res.status === 206) {
       // try to parse out the size of the remote file
       const contentRange = res.headers.get('content-range')

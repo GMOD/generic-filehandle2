@@ -183,6 +183,36 @@ test('zero read', async () => {
   expect(buf).toBe('')
 })
 
+test('warns on content-encoding: gzip range response but does not throw', async () => {
+  mockFetch = vi.fn().mockImplementation(async () => {
+    return createResponse('hello', 206, {
+      'content-range': '0-4/5',
+      'content-encoding': 'gzip',
+    })
+  })
+
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  await expect(f.read(5, 0)).resolves.toBeTruthy()
+  expect(warnSpy).toHaveBeenCalledWith(
+    expect.stringContaining('content-encoding: gzip'),
+  )
+  warnSpy.mockRestore()
+})
+
+test('no warn when content-encoding absent (simulates CORS hiding the header)', async () => {
+  mockFetch = vi.fn().mockImplementation(async () => {
+    // No content-encoding header — headers.get() returns null, matching CORS behavior
+    return createResponse('hello', 206, { 'content-range': '0-4/5' })
+  })
+
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  await expect(f.read(5, 0)).resolves.toBeTruthy()
+  expect(warnSpy).not.toHaveBeenCalled()
+  warnSpy.mockRestore()
+})
+
 test('stat', async () => {
   mockFetch = vi
     .fn()
