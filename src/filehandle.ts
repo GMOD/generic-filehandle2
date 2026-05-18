@@ -37,21 +37,14 @@ export interface GenericFilehandle {
     opts?: FilehandleOptions,
   ): Promise<Uint8Array<ArrayBuffer>>
 
-  readFile(): Promise<Uint8Array<ArrayBuffer>>
-  readFile(options: BufferEncoding): Promise<string>
-  readFile<T extends undefined>(
-    options:
-      | Omit<FilehandleOptions, 'encoding'>
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: T }),
+  readFile(
+    options?: Omit<FilehandleOptions, 'encoding'>,
   ): Promise<Uint8Array<ArrayBuffer>>
-  readFile<T extends BufferEncoding>(
-    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
+  readFile(
+    options:
+      | BufferEncoding
+      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
   ): Promise<string>
-  readFile<T extends BufferEncoding>(
-    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
-  ): T extends BufferEncoding
-    ? Promise<string>
-    : Promise<Uint8Array<ArrayBuffer>>
   stat(): Promise<Stats>
   close(): Promise<void>
 }

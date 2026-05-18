@@ -1,3 +1,5 @@
+import { toBytes } from './util.ts'
+
 import type {
   BufferEncoding,
   Fetcher,
@@ -14,6 +16,7 @@ function getMessage(e: unknown) {
     typeof e.message === 'string'
       ? e.message
       : `${e}`
+  // strip trailing period so the wrapped form `${msg} fetching ${url}` reads cleanly
   return r.replace(/\.$/, '')
 }
 
@@ -29,10 +32,22 @@ export default class RemoteFile implements GenericFilehandle {
     this.url = source
     this.baseHeaders = opts.headers ?? {}
     this.baseOverrides = opts.overrides ?? {}
-    this.fetchImplementation =
-      opts.fetch ??
-      ((input: RequestInfo, init?: RequestInit) =>
-        globalThis.fetch(input, init))
+    this.fetchImplementation = opts.fetch ?? globalThis.fetch.bind(globalThis)
+  }
+
+  private buildRequest(
+    opts: FilehandleOptions,
+    extraHeaders?: Record<string, string>,
+  ): RequestInit {
+    return {
+      ...this.baseOverrides,
+      ...opts.overrides,
+      headers: { ...this.baseHeaders, ...opts.headers, ...extraHeaders },
+      method: 'GET',
+      redirect: 'follow',
+      mode: 'cors',
+      signal: opts.signal,
+    }
   }
 
   public async fetch(
@@ -42,7 +57,7 @@ export default class RemoteFile implements GenericFilehandle {
     const wrapError = (e: unknown) =>
       new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
 
-    let response
+    let response: Response
     try {
       response = await this.fetchImplementation(input, init)
     } catch (e) {
@@ -82,17 +97,12 @@ export default class RemoteFile implements GenericFilehandle {
         `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
-    const { headers = {}, signal, overrides = {} } = opts
-    headers.range = `bytes=${position}-${position + length - 1}`
-    const res = await this.fetch(this.url, {
-      ...this.baseOverrides,
-      ...overrides,
-      headers: { ...this.baseHeaders, ...headers },
-      method: 'GET',
-      redirect: 'follow',
-      mode: 'cors',
-      signal,
-    })
+    const res = await this.fetch(
+      this.url,
+      this.buildRequest(opts, {
+        range: `bytes=${position}-${position + length - 1}`,
+      }),
+    )
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
@@ -122,10 +132,12 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      const resData = res.bytes
-        ? await res.bytes()
-        : new Uint8Array(await res.arrayBuffer())
+      const resData = await toBytes(res)
+      // server didn't honor the range request and returned the full file —
+      // the body length is the actual file size
+      if (!this._stat && res.status === 200) {
+        this._stat = { size: resData.byteLength }
+      }
       return resData.byteLength <= length
         ? resData
         : resData.subarray(0, length)
@@ -138,36 +150,20 @@ export default class RemoteFile implements GenericFilehandle {
     )
   }
 
-  public async readFile(): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile(options: BufferEncoding): Promise<string>
-  public async readFile<T extends undefined>(
-    options:
-      | Omit<FilehandleOptions, 'encoding'>
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: T }),
+  public async readFile(
+    options?: Omit<FilehandleOptions, 'encoding'>,
   ): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile<T extends BufferEncoding>(
-    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
+  public async readFile(
+    options:
+      | BufferEncoding
+      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
   ): Promise<string>
-  readFile<T extends BufferEncoding>(
-    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
-  ): T extends BufferEncoding
-    ? Promise<string>
-    : Promise<Uint8Array<ArrayBuffer>>
   public async readFile(
     options: FilehandleOptions | BufferEncoding = {},
   ): Promise<Uint8Array<ArrayBuffer> | string> {
     const encoding = typeof options === 'string' ? options : options.encoding
     const opts = typeof options === 'string' ? {} : options
-    const { headers = {}, signal, overrides = {} } = opts
-    const res = await this.fetch(this.url, {
-      ...this.baseOverrides,
-      ...overrides,
-      headers: { ...this.baseHeaders, ...headers },
-      method: 'GET',
-      redirect: 'follow',
-      mode: 'cors',
-      signal,
-    })
+    const res = await this.fetch(this.url, this.buildRequest(opts))
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
@@ -176,8 +172,7 @@ export default class RemoteFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return res.bytes ? res.bytes() : new Uint8Array(await res.arrayBuffer())
+      return toBytes(res)
     }
   }
 

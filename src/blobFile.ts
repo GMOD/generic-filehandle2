@@ -1,3 +1,5 @@
+import { toBytes } from './util.ts'
+
 import type {
   BufferEncoding,
   FilehandleOptions,
@@ -28,22 +30,16 @@ export default class BlobFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
 
-    const slice = this.blob.slice(position, position + length)
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    return slice.bytes
-      ? slice.bytes()
-      : new Uint8Array(await slice.arrayBuffer())
+    return toBytes(this.blob.slice(position, position + length))
   }
 
-  public async readFile(): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile(options: BufferEncoding): Promise<string>
-  public async readFile<T extends undefined>(
-    options:
-      | Omit<FilehandleOptions, 'encoding'>
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: T }),
+  public async readFile(
+    options?: Omit<FilehandleOptions, 'encoding'>,
   ): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile<T extends BufferEncoding>(
-    options: Omit<FilehandleOptions, 'encoding'> & { encoding: T },
+  public async readFile(
+    options:
+      | BufferEncoding
+      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
   ): Promise<string>
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
@@ -54,10 +50,7 @@ export default class BlobFile implements GenericFilehandle {
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      return this.blob.bytes
-        ? this.blob.bytes()
-        : new Uint8Array(await this.blob.arrayBuffer())
+      return toBytes(this.blob)
     }
   }
 

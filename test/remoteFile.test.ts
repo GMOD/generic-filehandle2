@@ -1,7 +1,6 @@
-import rangeParser from 'range-parser'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { createResponse, toString } from './helpers.ts'
+import { createResponse, rangeMockFetch, toString } from './helpers.ts'
 import { LocalFile, RemoteFile } from '../src/index.ts'
 
 const getFile = (url: string) =>
@@ -68,60 +67,14 @@ test('reads file with encoding', async () => {
 })
 
 test('reads remote partially', async () => {
-  mockFetch = vi
-    .fn()
-    .mockImplementation(
-      async (url: string, args: { headers: Record<string, string> }) => {
-        const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range ?? '')
-        if (!Array.isArray(range)) {
-          throw new Error('unexpected invalid range')
-        }
-        const first = range[0]
-        if (!first) {
-          throw new Error('unexpected empty range')
-        }
-        const { start, end } = first
-        const len = end - start + 1
-        const buf = await file.read(len, start)
-        const stat = await file.stat()
-
-        return createResponse(buf, 206, {
-          'content-range': `${start}-${end}/${stat.size}`,
-        })
-      },
-    )
-
+  mockFetch = rangeMockFetch()
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = await f.read(3, 0)
   expect(toString(buf)).toEqual('tes')
 })
 
 test('reads remote clipped at the end', async () => {
-  mockFetch = vi
-    .fn()
-    .mockImplementation(
-      async (url: string, args: { headers: Record<string, string> }) => {
-        const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range ?? '')
-        if (!Array.isArray(range)) {
-          throw new Error('unexpected invalid range')
-        }
-        const first = range[0]
-        if (!first) {
-          throw new Error('unexpected empty range')
-        }
-        const { start, end } = first
-        const len = end - start + 1
-        const buf = await file.read(len, start)
-        const stat = await file.stat()
-
-        return createResponse(buf, 206, {
-          'content-range': `${start}-${end}/${stat.size}`,
-        })
-      },
-    )
-
+  mockFetch = rangeMockFetch()
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = await f.read(3, 6)
   expect(toString(buf).replace('\0', '')).toEqual('g\n')
@@ -154,44 +107,21 @@ test('throws on NaN length or position', async () => {
 })
 
 test('zero read', async () => {
-  mockFetch = vi
-    .fn()
-    .mockImplementation(
-      async (url: string, args: { headers: Record<string, string> }) => {
-        const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range ?? '')
-        if (!Array.isArray(range)) {
-          throw new Error('unexpected invalid range')
-        }
-        const first = range[0]
-        if (!first) {
-          throw new Error('unexpected empty range')
-        }
-        const { start, end } = first
-        const len = end - start + 1
-        const buf = await file.read(len, start)
-        const stat = await file.stat()
-
-        return createResponse(buf, 206, {
-          'content-range': `${start}-${end}/${stat.size}`,
-        })
-      },
-    )
-
+  mockFetch = rangeMockFetch()
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const buf = toString(await f.read(0, 0))
   expect(buf).toBe('')
 })
 
 test('warns on content-encoding: gzip range response but does not throw', async () => {
-  mockFetch = vi.fn().mockImplementation(async () => {
+  mockFetch = vi.fn().mockImplementation(() => {
     return createResponse('hello', 206, {
       'content-range': '0-4/5',
       'content-encoding': 'gzip',
     })
   })
 
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   await expect(f.read(5, 0)).resolves.toBeTruthy()
   await expect(f.read(5, 0)).resolves.toBeTruthy()
@@ -204,12 +134,12 @@ test('warns on content-encoding: gzip range response but does not throw', async 
 })
 
 test('no warn when content-encoding absent (simulates CORS hiding the header)', async () => {
-  mockFetch = vi.fn().mockImplementation(async () => {
+  mockFetch = vi.fn().mockImplementation(() => {
     // No content-encoding header — headers.get() returns null, matching CORS behavior
     return createResponse('hello', 206, { 'content-range': '0-4/5' })
   })
 
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   await expect(f.read(5, 0)).resolves.toBeTruthy()
   expect(warnSpy).not.toHaveBeenCalled()
@@ -217,31 +147,15 @@ test('no warn when content-encoding absent (simulates CORS hiding the header)', 
 })
 
 test('stat', async () => {
-  mockFetch = vi
-    .fn()
-    .mockImplementation(
-      async (url: string, args: { headers: Record<string, string> }) => {
-        const file = getFile(url)
-        const range = rangeParser(10000, args.headers.range ?? '')
-        if (!Array.isArray(range)) {
-          throw new Error('unexpected invalid range')
-        }
-        const first = range[0]
-        if (!first) {
-          throw new Error('unexpected empty range')
-        }
-        const { start, end } = first
-        const len = end - start + 1
-        const buf = await file.read(len, start)
-        const stat = await file.stat()
-
-        return createResponse(buf, 206, {
-          'content-range': `${start}-${end}/${stat.size}`,
-        })
-      },
-    )
-
+  mockFetch = rangeMockFetch()
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
   const stat = await f.stat()
   expect(stat.size).toEqual(8)
+})
+
+test('stat falls back to body length when server returns 200 without content-range', async () => {
+  mockFetch = vi.fn().mockImplementation(() => createResponse('hello!', 200))
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  const stat = await f.stat()
+  expect(stat.size).toEqual(6)
 })
