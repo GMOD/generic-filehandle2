@@ -63,5 +63,5 @@ https://github.com/GMOD/generic-filehandle
 Actions.
 
 ```bash
-npm version patch  # or minor/major
+pnpm version patch  # or minor/major
 ```
