@@ -103,6 +103,14 @@ export default class RemoteFile implements GenericFilehandle {
       }),
     )
 
+    // HTTP 416 Range Not Satisfiable: the requested range starts past EOF.
+    // Translate to an empty read so callers can detect EOF via short/empty
+    // returns instead of needing a separate size oracle (stat) to stay clear of
+    // the end of the file.
+    if (res.status === 416) {
+      return new Uint8Array(0)
+    }
+
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
