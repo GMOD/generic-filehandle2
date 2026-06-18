@@ -1,4 +1,5 @@
 export * from './filehandle.ts'
+export type { ProgressCallback } from './util.ts'
 
 export { default as BlobFile } from './blobFile.ts'
 export { default as RemoteFile } from './remoteFile.ts'

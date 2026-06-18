@@ -126,3 +126,68 @@ test('stat falls back to body length when server returns 200 without content-ran
   const stat = await f.stat()
   expect(stat.size).toEqual(6)
 })
+
+test('readFile reports streaming download progress', async () => {
+  const payload = new TextEncoder().encode('testing\n')
+  mockFetch = vi.fn().mockImplementation(() =>
+    Promise.resolve(
+      new Response(payload, {
+        status: 200,
+        headers: { 'content-length': `${payload.byteLength}` },
+      }),
+    ),
+  )
+
+  const ticks: [number, number | undefined][] = []
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  const b = await f.readFile({
+    onProgress: (received, total) => {
+      ticks.push([received, total])
+    },
+  })
+
+  expect(toString(b)).toEqual('testing\n')
+  // starts at 0 with the known total, ends fully received
+  expect(ticks[0]).toEqual([0, payload.byteLength])
+  expect(ticks.at(-1)).toEqual([payload.byteLength, payload.byteLength])
+})
+
+test('read reports progress, falling back to a final tick without a stream', async () => {
+  mockFetch = rangeMockFetch()
+  const ticks: [number, number | undefined][] = []
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  const b = await f.read(8, 0, {
+    onProgress: (received, total) => {
+      ticks.push([received, total])
+    },
+  })
+
+  expect(toString(b)).toEqual('testing\n')
+  // mocked response has no streamable body, so we still get a completion tick
+  expect(ticks.at(-1)?.[0]).toEqual(8)
+})
+
+test('readFile progress grows past an understated content-length', async () => {
+  const payload = new TextEncoder().encode('testing\n')
+  mockFetch = vi.fn().mockImplementation(() =>
+    // content-length understates the actual body (mimics gzip transfer-encoding
+    // where the header is the compressed size)
+    Promise.resolve(
+      new Response(payload, {
+        status: 200,
+        headers: { 'content-length': '2' },
+      }),
+    ),
+  )
+
+  const ticks: [number, number | undefined][] = []
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  const b = await f.readFile({
+    onProgress: (received, total) => {
+      ticks.push([received, total])
+    },
+  })
+
+  expect(toString(b)).toEqual('testing\n')
+  expect(ticks.at(-1)?.[0]).toEqual(payload.byteLength)
+})

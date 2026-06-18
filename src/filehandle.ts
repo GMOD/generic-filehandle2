@@ -1,3 +1,5 @@
+import type { ProgressCallback } from './util.ts'
+
 // avoids needing to have @types/node as a dependency of the consuming code
 export type BufferEncoding =
   | 'ascii'
@@ -24,6 +26,13 @@ export interface FilehandleOptions {
   overrides?: Omit<RequestInit, 'headers'>
   encoding?: BufferEncoding
   fetch?: Fetcher
+  /**
+   * Opt-in download-progress reporting. When set, the response body is streamed
+   * and this is called with the running byte count (and Content-Length total
+   * when available) as chunks arrive. Omitting it keeps the faster
+   * non-streaming read.
+   */
+  onProgress?: ProgressCallback
 }
 
 export interface Stats {

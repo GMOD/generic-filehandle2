@@ -1,4 +1,4 @@
-import { toBytes } from './util.ts'
+import { toBytes, toBytesWithProgress } from './util.ts'
 
 import type {
   BufferEncoding,
@@ -125,7 +125,9 @@ export default class RemoteFile implements GenericFilehandle {
         }
       }
 
-      const resData = await toBytes(res)
+      const resData = opts.onProgress
+        ? await toBytesWithProgress(res, opts.onProgress)
+        : await toBytes(res)
       // server didn't honor the range request and returned the full file —
       // the body length is the actual file size
       if (!this._stat && res.status === 200) {
@@ -164,6 +166,8 @@ export default class RemoteFile implements GenericFilehandle {
       return res.text()
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
+    } else if (opts.onProgress) {
+      return toBytesWithProgress(res, opts.onProgress)
     } else {
       return toBytes(res)
     }
