@@ -2,7 +2,9 @@
   "name": "generic-filehandle2",
   "description": "uniform interface for accessing binary data from local files, remote HTTP resources, and browser Blob data",
   "version": "2.2.0",
+  "packageManager": "pnpm@11.15.1",
   "type": "module",
+  "sideEffects": false,
   "main": "dist/index.js",
   "exports": {
     "browser": {
