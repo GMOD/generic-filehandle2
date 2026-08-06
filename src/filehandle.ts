@@ -45,8 +45,7 @@ export type ReadFileOptions = Omit<FilehandleOptions, 'encoding'>
 
 /** `readFile()` arguments for the string-returning call. */
 export type ReadFileTextOptions =
-  | BufferEncoding
-  | (ReadFileOptions & { encoding: BufferEncoding })
+  BufferEncoding | (ReadFileOptions & { encoding: BufferEncoding })
 
 export interface GenericFilehandle {
   read(
