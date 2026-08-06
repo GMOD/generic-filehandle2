@@ -1,9 +1,11 @@
-import { toBytes } from './util.ts'
+import { splitReadFileOptions, toBytes } from './util.ts'
 
 import type {
   BufferEncoding,
   FilehandleOptions,
   GenericFilehandle,
+  ReadFileOptions,
+  ReadFileTextOptions,
   Stats,
 } from './filehandle.ts'
 
@@ -34,17 +36,13 @@ export default class BlobFile implements GenericFilehandle {
   }
 
   public async readFile(
-    options?: Omit<FilehandleOptions, 'encoding'>,
+    options?: ReadFileOptions,
   ): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile(
-    options:
-      | BufferEncoding
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
-  ): Promise<string>
+  public async readFile(options: ReadFileTextOptions): Promise<string>
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {
-    const encoding = typeof options === 'string' ? options : options?.encoding
+    const { encoding } = splitReadFileOptions(options)
     if (encoding === 'utf8') {
       return this.blob.text()
     } else if (encoding) {

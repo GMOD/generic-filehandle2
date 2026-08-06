@@ -41,9 +41,13 @@ All entries are optional.
 
 - `signal` `<AbortSignal>` - passed to the fetch or file read call
 - `headers` `<Record<string, string>>` - extra HTTP headers for remote requests
-- `overrides` `<Object>` - extra parameters passed to the fetch call
+- `overrides` `<Object>` - extra parameters passed to the fetch call. These take
+  precedence over the defaults this library sets (`method`, `redirect`, `mode`)
 - `encoding` `<string>` - (`readFile` only) if set to `"utf8"`, returns a string
   instead of `Uint8Array`
+- `onProgress` `<(bytesReceived: number, total?: number) => void>` - opt-in
+  download progress for remote reads. Setting it streams the response body;
+  omitting it keeps the faster non-streaming path
 
 ### Constructor options
 

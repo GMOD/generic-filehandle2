@@ -4,6 +4,8 @@ import type {
   BufferEncoding,
   FilehandleOptions,
   GenericFilehandle,
+  ReadFileOptions,
+  ReadFileTextOptions,
   Stats,
 } from './filehandle.ts'
 
@@ -37,13 +39,9 @@ export default class LocalFile implements GenericFilehandle {
   }
 
   public async readFile(
-    options?: Omit<FilehandleOptions, 'encoding'>,
+    options?: ReadFileOptions,
   ): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile(
-    options:
-      | BufferEncoding
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
-  ): Promise<string>
+  public async readFile(options: ReadFileTextOptions): Promise<string>
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {

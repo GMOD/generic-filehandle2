@@ -1,4 +1,5 @@
-import type { ProgressCallback } from './util.ts'
+/** Reports bytes downloaded for a single fetch; `total` from Content-Length. */
+export type ProgressCallback = (bytesReceived: number, total?: number) => void
 
 // avoids needing to have @types/node as a dependency of the consuming code
 export type BufferEncoding =
@@ -39,6 +40,14 @@ export interface Stats {
   size: number
 }
 
+/** `readFile()` arguments for the byte-returning call. */
+export type ReadFileOptions = Omit<FilehandleOptions, 'encoding'>
+
+/** `readFile()` arguments for the string-returning call. */
+export type ReadFileTextOptions =
+  | BufferEncoding
+  | (ReadFileOptions & { encoding: BufferEncoding })
+
 export interface GenericFilehandle {
   read(
     length: number,
@@ -46,14 +55,8 @@ export interface GenericFilehandle {
     opts?: FilehandleOptions,
   ): Promise<Uint8Array<ArrayBuffer>>
 
-  readFile(
-    options?: Omit<FilehandleOptions, 'encoding'>,
-  ): Promise<Uint8Array<ArrayBuffer>>
-  readFile(
-    options:
-      | BufferEncoding
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
-  ): Promise<string>
+  readFile(options?: ReadFileOptions): Promise<Uint8Array<ArrayBuffer>>
+  readFile(options: ReadFileTextOptions): Promise<string>
   stat(): Promise<Stats>
   close(): Promise<void>
 }

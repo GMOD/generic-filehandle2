@@ -1,10 +1,17 @@
-import { toBytes, toBytesWithProgress } from './util.ts'
+import {
+  parseContentRangeSize,
+  splitReadFileOptions,
+  toBytes,
+  toBytesWithProgress,
+} from './util.ts'
 
 import type {
   BufferEncoding,
   Fetcher,
   FilehandleOptions,
   GenericFilehandle,
+  ReadFileOptions,
+  ReadFileTextOptions,
   Stats,
 } from './filehandle.ts'
 
@@ -23,14 +30,17 @@ function getMessage(e: unknown) {
 export default class RemoteFile implements GenericFilehandle {
   protected url: string
   private _stat?: Stats
+  private statProbe?: Promise<unknown>
   private fetchImplementation: Fetcher
   private baseHeaders: Record<string, string>
   private baseOverrides: Omit<RequestInit, 'headers'>
+  private baseSignal?: AbortSignal
 
   public constructor(source: string, opts: FilehandleOptions = {}) {
     this.url = source
     this.baseHeaders = opts.headers ?? {}
     this.baseOverrides = opts.overrides ?? {}
+    this.baseSignal = opts.signal
     this.fetchImplementation = opts.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
@@ -38,14 +48,20 @@ export default class RemoteFile implements GenericFilehandle {
     opts: FilehandleOptions,
     extraHeaders?: Record<string, string>,
   ): RequestInit {
+    // a per-call signal beats the constructor's, which beats one supplied via
+    // overrides; omit the key entirely when there is none, so we don't write
+    // `signal: undefined` over an overrides-supplied signal
+    const signal = opts.signal ?? this.baseSignal
     return {
-      ...this.baseOverrides,
-      ...opts.overrides,
-      headers: { ...this.baseHeaders, ...opts.headers, ...extraHeaders },
+      // defaults first: `overrides` is documented as extra fetch params, so a
+      // caller passing e.g. mode/redirect/method has to be able to win
       method: 'GET',
       redirect: 'follow',
       mode: 'cors',
-      signal: opts.signal,
+      ...this.baseOverrides,
+      ...opts.overrides,
+      headers: { ...this.baseHeaders, ...opts.headers, ...extraHeaders },
+      ...(signal ? { signal } : {}),
     }
   }
 
@@ -111,18 +127,13 @@ export default class RemoteFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} fetching ${this.url}`)
-    }
+    this.checkOk(res)
 
     if ((res.status === 200 && position === 0) || res.status === 206) {
       // try to parse out the size of the remote file
-      const contentRange = res.headers.get('content-range')
-      const sizeMatch = /\/(\d+)$/.exec(contentRange ?? '')
-      if (sizeMatch?.[1]) {
-        this._stat = {
-          size: parseInt(sizeMatch[1], 10),
-        }
+      const size = parseContentRangeSize(res.headers.get('content-range'))
+      if (size !== undefined) {
+        this._stat = { size }
       }
 
       const resData = opts.onProgress
@@ -133,9 +144,11 @@ export default class RemoteFile implements GenericFilehandle {
       if (!this._stat && res.status === 200) {
         this._stat = { size: resData.byteLength }
       }
-      return resData.byteLength <= length
-        ? resData
-        : resData.subarray(0, length)
+      // the server over-delivered (it ignored our range header and sent the
+      // whole file). copy out the requested slice rather than returning a
+      // subarray view, which would pin the entire body in memory for as long
+      // as the caller holds those few bytes.
+      return resData.byteLength <= length ? resData : resData.slice(0, length)
     }
 
     throw new Error(
@@ -145,37 +158,47 @@ export default class RemoteFile implements GenericFilehandle {
     )
   }
 
-  public async readFile(
-    options?: Omit<FilehandleOptions, 'encoding'>,
-  ): Promise<Uint8Array<ArrayBuffer>>
-  public async readFile(
-    options:
-      | BufferEncoding
-      | (Omit<FilehandleOptions, 'encoding'> & { encoding: BufferEncoding }),
-  ): Promise<string>
-  public async readFile(
-    options: FilehandleOptions | BufferEncoding = {},
-  ): Promise<Uint8Array<ArrayBuffer> | string> {
-    const encoding = typeof options === 'string' ? options : options.encoding
-    const opts = typeof options === 'string' ? {} : options
-    const res = await this.fetch(this.url, this.buildRequest(opts))
+  private checkOk(res: Response) {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
+  }
+
+  public async readFile(
+    options?: ReadFileOptions,
+  ): Promise<Uint8Array<ArrayBuffer>>
+  public async readFile(options: ReadFileTextOptions): Promise<string>
+  public async readFile(
+    options?: FilehandleOptions | BufferEncoding,
+  ): Promise<Uint8Array<ArrayBuffer> | string> {
+    const { encoding, opts } = splitReadFileOptions(options)
+    const res = await this.fetch(this.url, this.buildRequest(opts))
+    this.checkOk(res)
     if (encoding === 'utf8') {
       return res.text()
     } else if (encoding) {
       throw new Error(`unsupported encoding: ${encoding}`)
-    } else if (opts.onProgress) {
-      return toBytesWithProgress(res, opts.onProgress)
-    } else {
-      return toBytes(res)
     }
+    const bytes = opts.onProgress
+      ? await toBytesWithProgress(res, opts.onProgress)
+      : await toBytes(res)
+    // a 200 means we hold the entire file, so its length is the file size —
+    // record it so a subsequent stat() doesn't need another request. a 206
+    // (caller supplied their own range header) tells us nothing.
+    if (res.status === 200) {
+      this._stat = { size: bytes.byteLength }
+    }
+    return bytes
   }
 
   public async stat(): Promise<Stats> {
     if (!this._stat) {
-      await this.read(10, 0)
+      // share one probe between concurrent stat() callers instead of each
+      // firing its own request; cleared afterwards so a failed probe retries
+      this.statProbe ??= this.read(10, 0).finally(() => {
+        this.statProbe = undefined
+      })
+      await this.statProbe
     }
     // Content-Range may not be exposed due to CORS — return size 0 rather
     // than crashing so callers can degrade gracefully.

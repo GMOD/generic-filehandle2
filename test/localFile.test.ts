@@ -1,44 +1,29 @@
-import { TextDecoder } from 'util'
-
 import { expect, test } from 'vitest'
 
-import { LocalFile } from '../src/index.ts'
-
-function toString(a: Uint8Array<ArrayBuffer>) {
-  return new TextDecoder('utf8').decode(a)
-}
+import { testLocalFile, toString } from './helpers.ts'
 
 test('reads file', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const b = await f.readFile()
+  const b = await testLocalFile().readFile()
   expect(toString(b)).toEqual('testing\n')
 })
 test('reads file with encoding', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const fileText = await f.readFile('utf8')
-  expect(fileText).toEqual('testing\n')
-  const fileText2 = await f.readFile({ encoding: 'utf8' })
-  expect(fileText2).toEqual('testing\n')
+  const f = testLocalFile()
+  expect(await f.readFile('utf8')).toEqual('testing\n')
+  expect(await f.readFile({ encoding: 'utf8' })).toEqual('testing\n')
 })
 test('reads local file', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const buf = await f.read(3, 0)
+  const buf = await testLocalFile().read(3, 0)
   expect(toString(buf)).toEqual('tes')
 })
-
 test('zero read', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const buf = await f.read(0, 0)
-  expect(toString(buf)[0]).toBe(undefined)
+  const buf = await testLocalFile().read(0, 0)
+  expect(toString(buf)).toEqual('')
 })
 test('reads local file clipped at the end', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const buf = await f.read(3, 6)
-  const s = toString(buf).replace('\0', '')
-  expect(s).toEqual('g\n')
+  const buf = await testLocalFile().read(3, 6)
+  expect(toString(buf).replace('\0', '')).toEqual('g\n')
 })
 test('get stat', async () => {
-  const f = new LocalFile(require.resolve('./data/test.txt'))
-  const ret = await f.stat()
+  const ret = await testLocalFile().stat()
   expect(ret.size).toEqual(8)
 })
