@@ -1,3 +1,22 @@
+## [2.2.2](https://github.com/GMOD/generic-filehandle2/compare/v2.2.1...v2.2.2) (2026-08-06)
+
+### Bug Fixes
+
+- Correct RemoteFile request building, buffer retention, and stat caching
+
+### Chores
+
+- Share one eslint-plugin-unicorn opt-out list across the repos
+- Turn off unicorn/prefer-early-return across the repos
+- Replace standard-changelog with git-cliff for changelog generation
+- Drop eslint-plugin-unicorn
+- Type-check the tests and enforce prettier, as @gmod/bam does
+
+### Documentation
+
+- Backfill CHANGELOG.md from git history
+- Mark breaking changes in the generated changelog
+
 # Changelog
 
 This changelog was backfilled from git history in 2026-08; entries for
