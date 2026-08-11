@@ -47,6 +47,47 @@ export interface LocalFileOptions {
   fdIdleTimeoutMs?: number
 }
 
+/**
+ * `unref` the idle timer where the runtime has one.
+ *
+ * Duck-typed rather than asserted, because this module runs somewhere the two
+ * halves of its environment disagree. `setTimeout` returns a `Timeout` under
+ * node and a **number** in a DOM context, and a number has no `unref` — but
+ * that is not the browser build's problem, since `browser.ts` swaps this whole
+ * class for a stub that never opens a descriptor.
+ *
+ * The case that bites is Electron's renderer, and anything else that resolves
+ * the node entry while keeping DOM timers: `fs/promises` is real, so `LocalFile`
+ * is the right class and every read works — and then `touch()` reaches for
+ * `unref` on a number and throws `this.idleTimer.unref is not a function` out of
+ * the read. In JBrowse Desktop that surfaced as a text search adapter failing
+ * with no indication that a timer was involved.
+ *
+ * Missing `unref` costs only what it says: the timer can hold a process alive
+ * for `fdIdleTimeoutMs`. In a renderer there is no process to hold open.
+ */
+function unrefIfPossible(timer: unknown) {
+  if (isUnrefable(timer)) {
+    timer.unref()
+  }
+}
+
+/**
+ * A type predicate rather than narrowing inline at the call site: `'unref' in
+ * timer` plus a `typeof` check leaves the member typed as a bare `Function`,
+ * which `no-unsafe-call` rejects because a bare `Function` says nothing about
+ * its parameters or return. Stating the shape once here is what makes the call
+ * checked, and the body is still an ordinary runtime test — no cast.
+ */
+function isUnrefable(timer: unknown): timer is { unref: () => void } {
+  return (
+    typeof timer === 'object' &&
+    timer !== null &&
+    'unref' in timer &&
+    typeof timer.unref === 'function'
+  )
+}
+
 export default class LocalFile implements GenericFilehandle {
   private filename: string
   private cacheFd: boolean
@@ -77,7 +118,7 @@ export default class LocalFile implements GenericFilehandle {
       void this.dropHandle()
     }, this.fdIdleTimeoutMs)
     // never hold a node process open just to close a descriptor later
-    this.idleTimer.unref()
+    unrefIfPossible(this.idleTimer)
   }
 
   /**

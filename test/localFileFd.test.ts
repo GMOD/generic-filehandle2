@@ -174,3 +174,30 @@ test('fdIdleTimeoutMs: 0 holds the descriptor until close', async () => {
   await file.close()
   expect((file as unknown as { fh: unknown }).fh).toBeUndefined()
 })
+
+// Electron's renderer, and anything else that resolves the node entry while
+// keeping DOM timers: `fs/promises` is real so this is the right class, but
+// `setTimeout` returns a number, which has no `unref`. Reaching for it threw
+// out of the read itself — in JBrowse Desktop that surfaced as a text search
+// adapter failing, with nothing naming a timer.
+test('a read succeeds where setTimeout returns a number, as in a DOM context', async () => {
+  const realSetTimeout = globalThis.setTimeout
+  const timers: unknown[] = []
+  // the DOM signature: an opaque numeric handle, no unref
+  globalThis.setTimeout = ((fn: () => void, ms?: number) => {
+    timers.push(realSetTimeout(fn, ms))
+    return timers.length as unknown as ReturnType<typeof setTimeout>
+  }) as typeof globalThis.setTimeout
+  try {
+    const file = new LocalFile(FIXTURE)
+    expect(toString(await file.read(3, 0))).toEqual('tes')
+    // and the second read, which is the one that clears the previous timer
+    expect(toString(await file.read(2, 4))).toEqual('in')
+    await file.close()
+  } finally {
+    globalThis.setTimeout = realSetTimeout
+    for (const t of timers) {
+      clearTimeout(t as ReturnType<typeof setTimeout>)
+    }
+  }
+})
