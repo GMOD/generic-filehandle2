@@ -1,3 +1,15 @@
+## [2.3.1](https://github.com/GMOD/generic-filehandle2/compare/v2.3.0...v2.3.1) (2026-08-11)
+
+### Bug Fixes
+
+- Guard unref, which a DOM setTimeout does not have ([ff2c64d](https://github.com/GMOD/generic-filehandle2/commit/ff2c64d2a8dc37032fb2eac500afbd23c8c138fa))
+
+### Chores
+
+- Render only the commit subject, and link the commit ([4bb973f](https://github.com/GMOD/generic-filehandle2/commit/4bb973fd3a1d810ab4db2dc442c48f3eda03e9d6))
+- Create a GitHub release for each published tag ([4d6bd66](https://github.com/GMOD/generic-filehandle2/commit/4d6bd6636c7296b28cfca2179e3648bf52a1922f))
+- Enforce type strippability in tsconfig ([05026e1](https://github.com/GMOD/generic-filehandle2/commit/05026e132df7e86cd8c9b91fd860918caec4c158))
+
 ## [2.3.0](https://github.com/GMOD/generic-filehandle2/compare/v2.2.3...v2.3.0) (2026-08-11)
 
 ### Features
