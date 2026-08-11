@@ -112,6 +112,30 @@ export default class RemoteFile implements GenericFilehandle {
         `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
+    return this.fetchBytes(length, position, opts)
+  }
+
+  /**
+   * The bytes for one byte range — the seam a subclass that can serve those
+   * bytes some other way overrides.
+   *
+   * The alternative is overriding {@link fetch}, and for a subclass holding a
+   * byte cache that is the wrong altitude: it has bytes, so it has to wrap them
+   * in a `Response` that `read` immediately unwraps again. Both halves copy.
+   * Measured against JBrowse's `RemoteFileWithRangeCache` on a fully warm cache
+   * with no network at all, that round trip was **69-77% of the entire read** —
+   * 6.15ms vs 1.90ms for 16MB, and the same ratio down to 256KB.
+   *
+   * So: override this to serve bytes, override {@link fetch} to change how
+   * requests are made. Overriding neither leaves the ranged GET below, and the
+   * default implementation still goes through `this.fetch`, so a subclass that
+   * only wraps `fetch` keeps working untouched.
+   */
+  protected async fetchBytes(
+    length: number,
+    position: number,
+    opts: FilehandleOptions,
+  ): Promise<Uint8Array<ArrayBuffer>> {
     const res = await this.fetch(
       this.url,
       this.buildRequest(opts, {

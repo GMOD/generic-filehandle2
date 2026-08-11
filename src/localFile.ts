@@ -8,24 +8,174 @@ import type {
   ReadFileTextOptions,
   Stats,
 } from './filehandle.ts'
+import type { FileHandle } from 'fs/promises'
+
+export interface LocalFileOptions {
+  /**
+   * Keep the file descriptor open between reads instead of opening and closing
+   * one per read. Default true.
+   *
+   * Worth ~1.9x on small reads (47 -> 25 us on 64KB reads of a warm file), which
+   * matters because an indexed reader issues a lot of them: a single BAM query
+   * is 6-20 reads plus the index.
+   *
+   * The hazard a held descriptor introduces is that it can go stale under you —
+   * EBADF on a Samba mount, ESTALE on NFS — where open-per-read cannot. That is
+   * handled rather than avoided: a failed read drops the descriptor, reopens,
+   * and retries once, so a stale one costs a reopen instead of an error. A file
+   * that is genuinely gone fails on the second attempt with its real error.
+   *
+   * Set false to go back to open-per-read.
+   */
+  cacheFd?: boolean
+  /**
+   * Close a held descriptor once nothing has read from it for this many
+   * milliseconds. Default 30s; `0` holds it until {@link LocalFile.close}.
+   *
+   * Without this, one descriptor is retained per instance for the life of the
+   * object, and consumers do not reliably close filehandles — JBrowse opens one
+   * per track file and never does. Two reasons that matters. Descriptors are a
+   * per-process limit, so "one per file object, forever" is a slow leak in a
+   * long session; and node deprecated closing a `FileHandle` by garbage
+   * collection (DEP0137) and intends to make it an error, so a held descriptor
+   * that is only ever collected is a future crash rather than a tidy-up.
+   *
+   * Releasing on idle keeps the win — reads during a query are milliseconds
+   * apart and never see it — while making retention self-limiting for a caller
+   * that forgets. The timer is `unref`'d, so it never keeps a process alive.
+   */
+  fdIdleTimeoutMs?: number
+}
 
 export default class LocalFile implements GenericFilehandle {
   private filename: string
+  private cacheFd: boolean
+  private fdIdleTimeoutMs: number
+  private fh: FileHandle | undefined
+  private opening: Promise<FileHandle> | undefined
+  private idleTimer: ReturnType<typeof setTimeout> | undefined
 
-  public constructor(source: string) {
+  public constructor(source: string, opts: LocalFileOptions = {}) {
     this.filename = source
+    this.cacheFd = opts.cacheFd ?? true
+    this.fdIdleTimeoutMs = opts.fdIdleTimeoutMs ?? 30_000
   }
 
-  public async read(length: number, position = 0) {
+  /**
+   * Restart the idle countdown. Called after every read, so the clock measures
+   * time since the last read rather than time since the descriptor opened.
+   */
+  private touch() {
+    if (this.fdIdleTimeoutMs <= 0) {
+      return
+    }
+    if (this.idleTimer !== undefined) {
+      clearTimeout(this.idleTimer)
+    }
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = undefined
+      void this.dropHandle()
+    }, this.fdIdleTimeoutMs)
+    // never hold a node process open just to close a descriptor later
+    this.idleTimer.unref()
+  }
+
+  /**
+   * The open descriptor, opening one if needed. Concurrent callers share a
+   * single `open()` — an indexed reader routinely fires six reads at once and
+   * they should not race to open six descriptors.
+   */
+  private async handle() {
+    if (this.fh) {
+      return this.fh
+    }
+    this.opening ??= open(this.filename, 'r').then(
+      fh => {
+        this.fh = fh
+        this.opening = undefined
+        return fh
+      },
+      (e: unknown) => {
+        this.opening = undefined
+        throw e
+      },
+    )
+    return this.opening
+  }
+
+  private async dropHandle() {
+    if (this.idleTimer !== undefined) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = undefined
+    }
+    const fh = this.fh
+    this.fh = undefined
+    if (fh) {
+      try {
+        await fh.close()
+      } catch {
+        // Already closed or invalid. This is the EBADF that network
+        // filesystems produce, and there is nothing to do about it here: the
+        // descriptor is being discarded either way.
+      }
+    }
+  }
+
+  public async read(
+    length: number,
+    position = 0,
+    opts: FilehandleOptions = {},
+  ): Promise<Uint8Array<ArrayBuffer>> {
     if (length === 0) {
       return new Uint8Array(0)
     }
+    opts.signal?.throwIfAborted()
+    if (!this.cacheFd) {
+      return this.readWithOwnHandle(length, position, opts)
+    }
+    // Two attempts: a descriptor held across reads can be invalidated out from
+    // under us (see LocalFileOptions.cacheFd), and reopening is the recovery.
+    for (let attempt = 0; ; attempt++) {
+      const fh = await this.handle()
+      try {
+        const bytes = await this.readFrom(fh, length, position, opts)
+        this.touch()
+        return bytes
+      } catch (e) {
+        await this.dropHandle()
+        // A cancelled read is not a sick descriptor. Retrying one would reopen
+        // the file and redo the read purely to abort again on the second pass.
+        if (attempt > 0 || opts.signal?.aborted) {
+          throw e
+        }
+      }
+    }
+  }
+
+  private async readFrom(
+    fh: FileHandle,
+    length: number,
+    position: number,
+    opts: FilehandleOptions,
+  ) {
     const arr = new Uint8Array(length)
+    const res = await fh.read(arr, 0, length, position)
+    // node's fs has no signal support on read, so the read runs to completion
+    // regardless; checking here at least stops the bytes being handed to a
+    // caller that has given up, and matches what RemoteFile does.
+    opts.signal?.throwIfAborted()
+    return res.buffer.subarray(0, res.bytesRead)
+  }
+
+  private async readWithOwnHandle(
+    length: number,
+    position: number,
+    opts: FilehandleOptions,
+  ) {
     let fd
     try {
       fd = await open(this.filename, 'r')
-      const res = await fd.read(arr, 0, length, position)
-      return res.buffer.subarray(0, res.bytesRead)
+      return await this.readFrom(fd, length, position, opts)
     } finally {
       if (fd) {
         try {
@@ -52,7 +202,12 @@ export default class LocalFile implements GenericFilehandle {
     return stat(this.filename)
   }
 
+  /**
+   * Release the held descriptor, if there is one. Reading again reopens, so
+   * this is safe to call at any point — it is a hint that the caller is done,
+   * not a teardown that invalidates the object.
+   */
   public async close(): Promise<void> {
-    /* do nothing */
+    await this.dropHandle()
   }
 }

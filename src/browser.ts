@@ -1,7 +1,9 @@
 // Browser-specific exports that exclude Node.js-only modules
 import type { GenericFilehandle } from './filehandle.ts'
+import type { LocalFileOptions } from './localFile.ts'
 
 export * from './filehandle.ts'
+export type { LocalFileOptions } from './localFile.ts'
 
 export { default as BlobFile } from './blobFile.ts'
 export { default as RemoteFile } from './remoteFile.ts'
@@ -16,7 +18,10 @@ export { default as RemoteFile } from './remoteFile.ts'
 export class LocalFile implements GenericFilehandle {
   private source: string
 
-  public constructor(source: string) {
+  // takes the options argument too, for the same reason it takes `source`: a
+  // bundle resolving the `browser` condition must still typecheck a call
+  // written against the node class, options and all
+  public constructor(source: string, _opts: LocalFileOptions = {}) {
     this.source = source
   }
 
