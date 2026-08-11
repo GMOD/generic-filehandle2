@@ -1,3 +1,9 @@
+## [2.3.0](https://github.com/GMOD/generic-filehandle2/compare/v2.2.3...v2.3.0) (2026-08-11)
+
+### Features
+
+- Byte-level read seam, and make local files first class (#12)
+
 ## [2.2.3](https://github.com/GMOD/generic-filehandle2/compare/v2.2.2...v2.2.3) (2026-08-10)
 
 ### Chores
