@@ -25,6 +25,7 @@ export default class BlobFile implements GenericFilehandle {
   public async read(
     length: number,
     position = 0,
+    opts: FilehandleOptions = {},
   ): Promise<Uint8Array<ArrayBuffer>> {
     // short-circuit a read of 0 bytes here, because browsers actually sometimes
     // crash if you try to read 0 bytes from a local file!
@@ -32,7 +33,13 @@ export default class BlobFile implements GenericFilehandle {
       return new Uint8Array(0)
     }
 
-    return toBytes(this.blob.slice(position, position + length))
+    opts.signal?.throwIfAborted()
+    const bytes = await toBytes(this.blob.slice(position, position + length))
+    // Blob reads are not cancellable, so the read completes either way; this
+    // stops the bytes reaching a caller that has already given up, which is
+    // what every other filehandle here does.
+    opts.signal?.throwIfAborted()
+    return bytes
   }
 
   public async readFile(
