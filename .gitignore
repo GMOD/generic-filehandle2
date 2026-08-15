@@ -8,3 +8,5 @@ dist
 .vscode/
 .eslintcache
 pnpm-lock.yaml
+.claude/settings.local.json
+.claude/worktrees/
