@@ -70,6 +70,22 @@ test('reads remote clipped at the end', async () => {
   expect(toString(buf).replace('\0', '')).toEqual('g\n')
 })
 
+test("a caller's own Range header does not double up with ours", async () => {
+  const { fetch, inits } = capturingMockFetch(() => createResponse('tes', 206))
+  const f = new RemoteFile('http://fakehost/test.txt', {
+    fetch,
+    headers: { Range: 'bytes=0-100', Authorization: 'Basic abc' },
+  })
+  await f.read(3, 0)
+  // two spellings of the same header become one comma-joined multi-range
+  // request; only the range this read asked for survives
+  const headers = inits[0]?.headers as Record<string, string>
+  expect(headers.range).toEqual('bytes=0-2')
+  expect(headers.Range).toBeUndefined()
+  // and every other header keeps the casing the caller wrote
+  expect(headers.Authorization).toEqual('Basic abc')
+})
+
 test('throws error', async () => {
   mockFetch = constantMockFetch('', 500)
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
@@ -86,8 +102,11 @@ test('throws error if file missing', async () => {
 
 test('throws on NaN length or position', async () => {
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
-  await expect(f.read(NaN, 0)).rejects.toThrow(/NaN length or position/)
-  await expect(f.read(10, NaN)).rejects.toThrow(/NaN length or position/)
+  await expect(f.read(NaN, 0)).rejects.toThrow(/invalid length or position/)
+  await expect(f.read(10, NaN)).rejects.toThrow(/invalid length or position/)
+  // a fractional or negative offset is equally unsendable as a range header
+  await expect(f.read(1.5, 0)).rejects.toThrow(/invalid length or position/)
+  await expect(f.read(10, -1)).rejects.toThrow(/invalid length or position/)
 })
 
 test('zero read', async () => {

@@ -49,8 +49,13 @@ export default class BlobFile implements GenericFilehandle {
   public async readFile(
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {
-    const { encoding } = splitReadFileOptions(options)
-    return readBody(this.blob, encoding)
+    const { encoding, opts } = splitReadFileOptions(options)
+    opts.signal?.throwIfAborted()
+    const body = await readBody(this.blob, encoding)
+    // as in read(): the blob read is not cancellable, so this only keeps the
+    // result from a caller that has already given up
+    opts.signal?.throwIfAborted()
+    return body
   }
 
   public stat(): Promise<Stats> {

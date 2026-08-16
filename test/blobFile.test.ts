@@ -17,6 +17,13 @@ test('reads whole file with encoding', async () => {
     /unsupported encoding/,
   )
 })
+test('readFile honors an aborted signal, as read() does', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  await expect(
+    testBlobFile().readFile({ signal: controller.signal }),
+  ).rejects.toThrow(/abort/i)
+})
 test('reads file part', async () => {
   const buf = await testBlobFile().read(3, 0)
   expect(toString(buf)).toEqual('tes')

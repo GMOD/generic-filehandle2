@@ -16,6 +16,25 @@ import type {
   Stats,
 } from './filehandle.ts'
 
+// header names are case-insensitive but object keys are not, so a caller's
+// `Range` and the `range` a ranged GET adds are two keys — and fetch folds them
+// into one comma-joined multi-range request, whose multipart/byteranges body we
+// would hand back as file bytes. Ours wins, however the caller spelled it.
+function mergeHeaders(
+  headers: Record<string, string>,
+  ours: Record<string, string> = {},
+) {
+  const names = new Set(Object.keys(ours).map(k => k.toLowerCase()))
+  const kept = Object.entries(headers).filter(
+    ([k]) => !names.has(k.toLowerCase()),
+  )
+  return { ...Object.fromEntries(kept), ...ours }
+}
+
+function isByteOffset(n: number) {
+  return Number.isSafeInteger(n) && n >= 0
+}
+
 function getMessage(e: unknown) {
   const r =
     typeof e === 'object' &&
@@ -61,14 +80,17 @@ export default class RemoteFile implements GenericFilehandle {
       mode: 'cors',
       ...this.baseOverrides,
       ...opts.overrides,
-      headers: { ...this.baseHeaders, ...opts.headers, ...extraHeaders },
+      headers: mergeHeaders(
+        { ...this.baseHeaders, ...opts.headers },
+        extraHeaders,
+      ),
       ...(signal ? { signal } : {}),
     }
   }
 
   public async fetch(
     input: RequestInfo,
-    init: RequestInit | undefined,
+    init?: RequestInit,
   ): Promise<Response> {
     const wrapError = (e: unknown) =>
       new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
@@ -108,9 +130,12 @@ export default class RemoteFile implements GenericFilehandle {
     if (length === 0) {
       return new Uint8Array(0)
     }
-    if (Number.isNaN(length) || Number.isNaN(position)) {
+    // NaN is the one that motivated this — a corrupt index yields it from
+    // ordinary arithmetic — but a fractional or negative byte offset is just as
+    // unsendable, and reaches the server as a range header it can only reject
+    if (!isByteOffset(length) || !isByteOffset(position)) {
       throw new TypeError(
-        `read() called with NaN length or position (length=${length}, position=${position}). The index file may be corrupt.`,
+        `read() called with an invalid length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
     return this.fetchBytes(length, position, opts)
