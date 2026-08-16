@@ -130,6 +130,32 @@ test('stat falls back to body length when server returns 200 without content-ran
   expect(stat.size).toEqual(6)
 })
 
+test('readFile reports progress for a Response from another implementation', async () => {
+  const payload = new TextEncoder().encode('testing\n')
+  // what a custom fetch built on node-fetch, or one crossing a realm, hands
+  // back: everything a Response has, but not the global Response class
+  const foreign = {
+    ok: true,
+    status: 200,
+    headers: { get: (n: string) => (n === 'content-length' ? '8' : null) },
+    body: new Response(payload).body,
+    text: () => Promise.resolve('testing\n'),
+    arrayBuffer: () => Promise.resolve(payload.buffer),
+  }
+  mockFetch = vi.fn().mockImplementation(() => Promise.resolve(foreign))
+
+  const ticks: number[] = []
+  const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
+  const b = await f.readFile({
+    onProgress: received => {
+      ticks.push(received)
+    },
+  })
+
+  expect(toString(b)).toEqual('testing\n')
+  expect(ticks).toEqual([0, payload.byteLength])
+})
+
 test('readFile reports streaming download progress', async () => {
   const payload = new TextEncoder().encode('testing\n')
   mockFetch = vi.fn().mockImplementation(() =>

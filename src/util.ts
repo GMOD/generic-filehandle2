@@ -33,7 +33,11 @@ export async function readBody(
   } else if (encoding) {
     throw new Error(`unsupported encoding: ${encoding}`)
   }
-  return onProgress && src instanceof Response
+  // duck-typed rather than `instanceof Response`, because a custom `fetch` may
+  // hand back a Response from another realm or another implementation
+  // altogether, and taking the no-progress path there leaves a progress bar at
+  // zero for the whole download. Only Response has `body`.
+  return onProgress && 'body' in src
     ? toBytesWithProgress(src, onProgress)
     : toBytes(src)
 }
