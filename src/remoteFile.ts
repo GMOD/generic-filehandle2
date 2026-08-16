@@ -1,5 +1,6 @@
 import {
   parseContentRangeSize,
+  readBody,
   splitReadFileOptions,
   toBytes,
   toBytesWithProgress,
@@ -198,21 +199,14 @@ export default class RemoteFile implements GenericFilehandle {
     const { encoding, opts } = splitReadFileOptions(options)
     const res = await this.fetch(this.url, this.buildRequest(opts))
     this.checkOk(res)
-    if (encoding === 'utf8') {
-      return res.text()
-    } else if (encoding) {
-      throw new Error(`unsupported encoding: ${encoding}`)
-    }
-    const bytes = opts.onProgress
-      ? await toBytesWithProgress(res, opts.onProgress)
-      : await toBytes(res)
+    const body = await readBody(res, encoding, opts.onProgress)
     // a 200 means we hold the entire file, so its length is the file size —
     // record it so a subsequent stat() doesn't need another request. a 206
     // (caller supplied their own range header) tells us nothing.
-    if (res.status === 200) {
-      this._stat = { size: bytes.byteLength }
+    if (res.status === 200 && typeof body !== 'string') {
+      this._stat = { size: body.byteLength }
     }
-    return bytes
+    return body
   }
 
   public async stat(): Promise<Stats> {

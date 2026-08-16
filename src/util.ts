@@ -15,6 +15,30 @@ export async function toBytes(
 }
 
 /**
+ * The body of a `readFile()`, decoded per the caller's encoding.
+ *
+ * Shared by RemoteFile and BlobFile because the branch is the same in both:
+ * text for utf8, bytes for no encoding, an error for an encoding neither can
+ * decode. Both spellings of utf8 count — node's `readFile` accepts `utf-8`, so
+ * LocalFile does too, and rejecting it only here would make the encoding a
+ * property of which filehandle you happened to hold.
+ */
+export async function readBody(
+  src: Response | Blob,
+  encoding: BufferEncoding | undefined,
+  onProgress?: ProgressCallback,
+): Promise<Uint8Array<ArrayBuffer> | string> {
+  if (encoding === 'utf8' || encoding === 'utf-8') {
+    return src.text()
+  } else if (encoding) {
+    throw new Error(`unsupported encoding: ${encoding}`)
+  }
+  return onProgress && src instanceof Response
+    ? toBytesWithProgress(src, onProgress)
+    : toBytes(src)
+}
+
+/**
  * `readFile()` takes either a bare encoding string or an options object, in
  * every implementation. Split whichever was passed into the two things callers
  * actually branch on.
@@ -78,7 +102,7 @@ export async function toBytesWithProgress(
   const reader = body.getReader()
   let out = new Uint8Array(total)
   let received = 0
-  let lastTick = 0
+  let lastTick = Date.now()
   onProgress(0, total)
   for (
     let chunk = await reader.read();
@@ -104,5 +128,8 @@ export async function toBytesWithProgress(
   }
 
   onProgress(received, total)
-  return received === out.length ? out : out.subarray(0, received)
+  // copy rather than return a view: a body shorter than its Content-Length
+  // would otherwise pin the whole over-allocated buffer, and hand the caller
+  // bytes whose `.buffer` is longer than the view over it
+  return received === out.length ? out : out.slice(0, received)
 }

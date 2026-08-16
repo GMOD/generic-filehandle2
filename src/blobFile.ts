@@ -1,4 +1,4 @@
-import { splitReadFileOptions, toBytes } from './util.ts'
+import { readBody, splitReadFileOptions, toBytes } from './util.ts'
 
 import type {
   BufferEncoding,
@@ -50,13 +50,7 @@ export default class BlobFile implements GenericFilehandle {
     options?: FilehandleOptions | BufferEncoding,
   ): Promise<Uint8Array<ArrayBuffer> | string> {
     const { encoding } = splitReadFileOptions(options)
-    if (encoding === 'utf8') {
-      return this.blob.text()
-    } else if (encoding) {
-      throw new Error(`unsupported encoding: ${encoding}`)
-    } else {
-      return toBytes(this.blob)
-    }
+    return readBody(this.blob, encoding)
   }
 
   public stat(): Promise<Stats> {

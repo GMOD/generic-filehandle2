@@ -65,19 +65,12 @@ export interface LocalFileOptions {
  *
  * Missing `unref` costs only what it says: the timer can hold a process alive
  * for `fdIdleTimeoutMs`. In a renderer there is no process to hold open.
- */
-function unrefIfPossible(timer: unknown) {
-  if (isUnrefable(timer)) {
-    timer.unref()
-  }
-}
-
-/**
- * A type predicate rather than narrowing inline at the call site: `'unref' in
- * timer` plus a `typeof` check leaves the member typed as a bare `Function`,
- * which `no-unsafe-call` rejects because a bare `Function` says nothing about
- * its parameters or return. Stating the shape once here is what makes the call
- * checked, and the body is still an ordinary runtime test — no cast.
+ *
+ * A type predicate rather than a `typeof` test at the call site: the latter
+ * leaves the member typed as a bare `Function`, which `no-unsafe-call` rejects
+ * because a bare `Function` says nothing about its parameters or return.
+ * Stating the shape here is what makes the call checked, and the body is still
+ * an ordinary runtime test — no cast.
  */
 function isUnrefable(timer: unknown): timer is { unref: () => void } {
   return (
@@ -118,7 +111,9 @@ export default class LocalFile implements GenericFilehandle {
       void this.dropHandle()
     }, this.fdIdleTimeoutMs)
     // never hold a node process open just to close a descriptor later
-    unrefIfPossible(this.idleTimer)
+    if (isUnrefable(this.idleTimer)) {
+      this.idleTimer.unref()
+    }
   }
 
   /**
@@ -149,7 +144,9 @@ export default class LocalFile implements GenericFilehandle {
       clearTimeout(this.idleTimer)
       this.idleTimer = undefined
     }
-    const fh = this.fh
+    // wait out an open still in flight, or it installs its descriptor after we
+    // have finished dropping and close() returns leaving one held
+    const fh = this.fh ?? (await this.opening?.catch(() => undefined))
     this.fh = undefined
     if (fh) {
       try {

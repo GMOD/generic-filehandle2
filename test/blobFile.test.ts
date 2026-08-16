@@ -10,6 +10,8 @@ test('reads whole file with encoding', async () => {
   const blobFile = testBlobFile()
   expect(await blobFile.readFile('utf8')).toEqual('testing\n')
   expect(await blobFile.readFile({ encoding: 'utf8' })).toEqual('testing\n')
+  expect(await blobFile.readFile('utf-8')).toEqual('testing\n')
+
   // @ts-expect-error passing invalid encoding to test runtime error
   await expect(blobFile.readFile('fakeEncoding')).rejects.toThrow(
     /unsupported encoding/,

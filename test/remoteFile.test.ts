@@ -46,6 +46,9 @@ test('reads file with encoding', async () => {
   expect(fileText).toEqual('testing\n')
   const fileText2 = await f.readFile({ encoding: 'utf8' })
   expect(fileText2).toEqual('testing\n')
+  // node's readFile takes either spelling, so LocalFile does; the other
+  // handles have to agree or the encoding depends on which one you hold
+  expect(await f.readFile('utf-8')).toEqual('testing\n')
 
   // @ts-expect-error passing invalid encoding to test runtime error
   await expect(f.readFile('fakeEncoding')).rejects.toThrow(

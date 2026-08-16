@@ -120,6 +120,25 @@ test('close() releases the descriptor and reading again reopens', async () => {
   await file.close()
 })
 
+test('close() during an in-flight open does not leave a descriptor held', async () => {
+  const file = new LocalFile(FIXTURE)
+  const read = file.read(3, 0)
+  const opening = (file as unknown as { opening: Promise<FileHandle> }).opening
+  // close before the open settles: waiting it out is the only way to close the
+  // descriptor it is about to install, and a caller that has closed and dropped
+  // the object never calls again to clean it up
+  await file.close()
+
+  const opened = await opening
+  await expect(opened.read(new Uint8Array(3), 0, 3, 0)).rejects.toThrow(
+    /file closed|EBADF/,
+  )
+  // the read itself survives: it reopens, which is what a dead descriptor
+  // always costs here
+  expect(toString(await read)).toEqual('tes')
+  await file.close()
+})
+
 test('read honors an aborted signal', async () => {
   const file = new LocalFile(FIXTURE)
   const controller = new AbortController()
