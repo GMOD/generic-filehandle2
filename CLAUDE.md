@@ -1,5 +1,13 @@
 # generic-filehandle2
 
+`docs/` carries the reasoning the code only gestures at: [api.md](docs/api.md),
+[optimizations.md](docs/optimizations.md), [local-files.md](docs/local-files.md)
+(the descriptor policy — held, retried on staleness, released on an idle timer),
+[subclassing.md](docs/subclassing.md) (the `fetchBytes` seam), and
+[browser-builds.md](docs/browser-builds.md). Read the relevant one before
+proposing a change to the read path; several of the obvious simplifications
+there are ruled out by a measurement.
+
 ## Package exports
 
 The `browser` export condition in `package.json` is intentional and
