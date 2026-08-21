@@ -22,7 +22,7 @@ interface GenericFilehandle {
 }
 ```
 
-Consumers should accept the interface, not a class — `@gmod/bam`, `@gmod/tabix`,
+Consumers should accept the interface, not a class: `@gmod/bam`, `@gmod/tabix`,
 `@gmod/bbi` and the rest never learn whether the bytes came from a disk, a
 server, or a file dragged into a browser tab.
 
@@ -127,12 +127,13 @@ Two seams, and picking the wrong one costs most of the read:
 | `protected fetchBytes(length, position, opts)` | you can produce the bytes          |
 | `public fetch(input, init?)`                   | you want requests made differently |
 
-The motivating case for the first is a range cache. With only `fetch` to
-override, a subclass holding the bytes had to wrap them in a `Response` that
-`read()` immediately unwrapped — measured against JBrowse's
-`RemoteFileWithRangeCache`, fully warm with no network involved, that round trip
-was **69-77% of the entire read** (0.36 → 0.08 ms at 0.25MB, 6.15 → 1.90 ms at
-16MB), which is the whole cost of a cache hit.
+The motivating case for the first is
+[@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle),
+which caches byte ranges under a parser. With only `fetch` to override, a
+subclass holding the bytes had to wrap them in a `Response` that `read()`
+immediately unwrapped — measured on that class fully warm, with no network
+involved, the round trip was **69-77% of the entire read** (0.36 → 0.08 ms at
+0.25MB, 6.15 → 1.90 ms at 16MB), the whole cost of a cache hit.
 
 ```js
 class CachingFile extends RemoteFile {
@@ -146,16 +147,14 @@ class CachingFile extends RemoteFile {
 `read()` keeps argument validation and the zero-length short circuit in front of
 the seam, so every subclass gets those. Everything HTTP — 416 handling,
 `Content-Range` size recording, the over-delivery slice — lives _inside_ the
-default `fetchBytes`, so an override is not silently opting out of a correctness
-fix it needed; it is opting out of HTTP, which it has already replaced. Delegate
-with `super` for reads you cannot serve. `stat()` runs through `read()`, so it
-goes through an override too.
+default `fetchBytes`, so an override opts out of HTTP, which it has already
+replaced, rather than out of a correctness fix it needed. `stat()` runs through
+`read()`, so it goes through an override too.
 
 Override `fetch` for auth, logging, retries or proxying. The constructor's
 `fetch` option is usually better than subclassing: it sits _below_ the base
 implementation, so the Chrome cached-CORS retry and error wrapping still apply
-to whatever it returns. If you are constructing a `Response` around bytes you
-already have, you want `fetchBytes` instead.
+to what it returns.
 
 ## Types
 

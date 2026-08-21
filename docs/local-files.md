@@ -1,10 +1,9 @@
 # Local files and the descriptor
 
 `LocalFile` holds one file descriptor open across reads and closes it once
-nothing has read from it for 30 seconds. Both halves of that are choices with
-consequences, and this is why each is the default. None of it applies in a
-browser build, where `LocalFile` is a stub that rejects every call
-([browser-builds.md](browser-builds.md)).
+nothing has read from it for 30 seconds. This is why each half is the default.
+None of it applies in a browser build, where `LocalFile` is a stub that rejects
+every call ([browser-builds.md](browser-builds.md)).
 
 ## Why hold a descriptor at all
 
@@ -22,8 +21,8 @@ Two runs on the same machine, 64KB reads of a warm file, arms interleaved:
 
 Absolutes move with the machine, filesystem and node version — the two rows
 differ by ~3x on the same code — so take the ratio, roughly **1.9-2.1x**, and
-re-measure rather than quoting these. It affects every node consumer: CLI tools,
-indexing jobs, and every sibling repo's test suite. `cacheFd: false` restores
+re-measure rather than quoting these. Every node consumer is affected: CLI
+tools, indexing jobs, every sibling repo's test suite. `cacheFd: false` restores
 open-per-read exactly.
 
 ## The hazard, and why it is handled rather than avoided
@@ -40,10 +39,10 @@ rather than looping. An **aborted** read is never retried — a cancellation is
 not a sick descriptor, and retrying one would spend a reopen and a second read
 on its way to throwing anyway.
 
-`test/localFileFd.test.ts` injects the fault directly, reaching into the private
-field to close the descriptor out from under the object, because it cannot be
-provoked on a local disk. Five kills in a row prove the retry does not degrade
-into a loop.
+`test/localFileFd.test.ts` injects the fault directly — reaching into the
+private field to close the descriptor out from under the object, since a local
+disk will not produce it — and kills it five times running to prove the retry
+does not degrade into a loop.
 
 ## The idle timeout
 
@@ -93,10 +92,10 @@ process open for `fdIdleTimeoutMs`, and a renderer has no process to hold. The
 test replaces `globalThis.setTimeout` with the DOM signature and reads through
 it.
 
-It is a type guard rather than a `typeof` check at the call site because the
-latter leaves the member typed as a bare `Function`, which says nothing about
-parameters or return, so `no-unsafe-call` rejects calling it. Stating the shape
-in the predicate is what makes the call checked, with no cast anywhere.
+It is a type guard rather than a `typeof` check at the call site, because that
+leaves the member typed as a bare `Function` — saying nothing about parameters
+or return, so `no-unsafe-call` rejects calling it. Stating the shape is what
+makes the call checked, with no cast anywhere.
 
 ## Concurrent reads, and closing
 

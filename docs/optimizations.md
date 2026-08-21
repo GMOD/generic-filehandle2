@@ -1,15 +1,15 @@
 # Optimizations
 
-This package is thin on purpose — `read(length, position)` over three sources —
-so nothing here is a clever algorithm. What it has instead is a set of decisions
-about **bytes that get copied, requests that get made, and memory that stays
-retained after a read returns**, each of which came from a consumer hitting it.
+This package is `read(length, position)` over three sources, so nothing here is
+a clever algorithm. What it has instead is decisions about **bytes that get
+copied, requests that get made, and memory retained after a read returns**, each
+one from a consumer hitting it.
 
-The consumers are indexed readers, and their shape is what everything below is
+Those consumers are indexed readers, and their shape is what everything below is
 tuned for: many small positional reads, issued concurrently, against a file
 whose size is unknown until something asks. [api.md](api.md) documents the
 surface; [local-files.md](local-files.md) covers the descriptor policy, the
-single largest win in the package.
+largest win in the package.
 
 ## Reads
 
@@ -26,10 +26,10 @@ Reading past the end returns a short read, or an empty array, rather than
 throwing — and `RemoteFile` keeps that true by translating HTTP **416 Range Not
 Satisfiable** into an empty read.
 
-That is what lets a caller walk to the end of a file without a size at all. The
-alternative is `stat()` before every speculative read, which for a remote file
-is another round trip, and it is why indexed readers over-read past a block
-boundary instead of asking how long the file is.
+That lets a caller walk to the end of a file without a size at all. The
+alternative — `stat()` before every speculative read — is another round trip
+remotely, which is why indexed readers over-read past a block boundary instead
+of asking how long the file is.
 
 ### An over-delivering server does not pin its body
 
@@ -49,9 +49,9 @@ view over it — the kind of thing that goes wrong three libraries downstream.
 ### `stat()` costs one small read, at most
 
 HTTP gives no size without asking, and `HEAD` — the textbook answer — is
-unreliable in practice, mishandled by proxies and object stores and often hidden
-by CORS. So `stat()` issues a 10-byte ranged read and takes the total out of
-`Content-Range` (`bytes 0-9/1234`).
+mishandled by proxies and object stores and often hidden by CORS. So `stat()`
+issues a 10-byte ranged read and takes the total out of `Content-Range`
+(`bytes 0-9/1234`).
 
 More usefully, **every read already does that**: any 206, and any 200 at
 position 0, records the size on the way past, so a reader that has read anything
@@ -65,10 +65,9 @@ the file.
 
 ### Concurrent `stat()` calls share one probe
 
-Several readers calling `stat()` on the same file at once is normal — it is
-usually the first thing each does — so they share a single in-flight probe
-rather than each firing a request. The promise is cleared once it settles, so a
-failed probe does not poison the object.
+Several readers calling `stat()` at once is normal — it is usually the first
+thing each does — so they share one in-flight probe. It is cleared once it
+settles, so a failed probe does not poison the object.
 
 ### A caller's `Range` header cannot double up with ours
 
@@ -79,8 +78,7 @@ server answers correctly, with a `multipart/byteranges` body — and that body,
 MIME boundaries and all, gets handed back as file bytes.
 
 So the merge lowercases both sides and lets the library's range win. A caller
-who wants a particular range should ask for it with `read(length, position)`,
-which is the whole API.
+who wants a particular range asks with `read(length, position)`.
 
 ### Chrome's cached-CORS bug gets one retry
 
@@ -117,24 +115,24 @@ nothing will display.
 ### Two platform details
 
 `Response.bytes()` skips the `new Uint8Array(...)` wrapper `arrayBuffer()`
-needs. It is widely available but missing from some `lib.dom.d.ts` versions, so
-the fallback check is an optional chain with an eslint suppression — TypeScript
-believes it is always defined and older runtimes disagree.
+needs, but is missing from some `lib.dom.d.ts` versions — hence the fallback
+check written as an optional chain with an eslint suppression, TypeScript
+believing it is always defined and older runtimes disagreeing.
 
 The progress path tests for a `body` property rather than `instanceof Response`,
-because a custom `fetch` may return a `Response` from another realm or another
-implementation entirely, where `instanceof` fails. The symptom is a progress bar
-stuck at zero for an entire download with everything else working.
+because a custom `fetch` may return one from another realm or another
+implementation, where `instanceof` fails. The symptom is a progress bar stuck at
+zero for a whole download with everything else working.
 
-## Consumers
+## Caching lives above this package
 
-Byte-range caching lives in the consumers, and that is the right place for it:
-only the reader knows which ranges it will ask for twice. `@gmod/bam` and
-`@gmod/tabix` cache decompressed chunks keyed by virtual offset; JBrowse layers
-a range cache over `RemoteFile` through the `fetchBytes` seam
-([api.md](api.md#extending-remotefile), where skipping the `Response` round trip
-was worth 69-77% of a warm read).
+Only the layer that knows the access pattern knows what will be asked for twice.
+[@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
+wraps a handle to cache byte ranges and coalesce a query's reads into a few
+requests, through the `fetchBytes` seam ([api.md](api.md#extending-remotefile),
+where skipping the `Response` round trip was worth 69-77% of a warm read). Above
+that, `@gmod/bam` and `@gmod/tabix` cache decompressed chunks keyed by virtual
+offset.
 
-A filehandle that cached bytes itself would be caching the wrong unit — raw byte
-ranges that rarely repeat exactly — while holding memory the reader cannot see
-or bound.
+Caching inside a filehandle would hold memory neither of those layers can see or
+bound.

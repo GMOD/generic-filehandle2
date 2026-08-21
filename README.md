@@ -19,6 +19,12 @@ const buf1 = await remote.read(/* length */ 10, /* position */ 10) // range requ
 const buf2 = await remote.readFile()
 ```
 
+For remote reads under an indexed parser, put
+[@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
+underneath: `RemoteFileWithRangeCache` is a drop-in `RemoteFile` that caches
+byte ranges in chunks and coalesces a query's many small reads into a few
+requests.
+
 ## API
 
 ### `async read(length: number, position: number, opts?: Options): Promise<Uint8Array>`
@@ -48,14 +54,13 @@ All entries are optional.
 
 - `signal` `<AbortSignal>` - passed to the fetch or file read call
 - `headers` `<Record<string, string>>` - extra HTTP headers for remote requests
-- `overrides` `<Object>` - extra parameters passed to the fetch call. These take
-  precedence over the defaults this library sets (`method`, `redirect`, `mode`)
-- `encoding` `<string>` - (`readFile` only) if set to `"utf8"` (or `"utf-8"`),
-  returns a string instead of `Uint8Array`. `LocalFile` takes any encoding
-  node's `readFile` does; the other two handle utf8 only
+- `overrides` `<Object>` - extra fetch params, taking precedence over the
+  defaults this library sets (`method`, `redirect`, `mode`)
+- `encoding` `<string>` - (`readFile` only) `"utf8"`/`"utf-8"` returns a string
+  instead of `Uint8Array`. `LocalFile` takes any encoding node's `readFile`
+  does; the other two handle utf8 only
 - `onProgress` `<(bytesReceived: number, total?: number) => void>` - opt-in
-  download progress for remote reads. Setting it streams the response body;
-  omitting it keeps the faster non-streaming path
+  download progress for remote reads; setting it streams the response body
 
 ### Constructor options
 
@@ -66,24 +71,25 @@ The `RemoteFile` constructor accepts the same Options above, plus:
 
 The `LocalFile` constructor accepts:
 
-- `cacheFd` `<boolean>` - keep one file descriptor open across reads instead of
-  opening one per read. Default `true`, and worth ~1.9x on the small reads an
-  indexed reader issues. A descriptor that goes stale (NFS, Samba) costs a
-  reopen rather than an error
+- `cacheFd` `<boolean>` - keep one descriptor open across reads. Default `true`,
+  worth ~1.9x on the small reads an indexed reader issues; a descriptor gone
+  stale (NFS, Samba) costs a reopen rather than an error
 - `fdIdleTimeoutMs` `<number>` - close a held descriptor once nothing has read
   from it for this long. Default 30000; `0` holds it until `close()`
 
 ### Serving bytes from a subclass
 
-`RemoteFile`'s `protected fetchBytes(length, position, opts)` is the seam for a
-subclass that already has the bytes — a range cache, say. Overriding it skips
-wrapping them in a `Response` for `read()` to immediately unwrap, which measured
-as most of the cost of a warm cache hit. Override `fetch` instead to change how
-requests are made; a subclass that only wraps `fetch` keeps working untouched.
+`protected fetchBytes(length, position, opts)` is the seam for a subclass that
+already has the bytes — `@gmod/range-cache-filehandle` is one. It skips wrapping
+them in a `Response` for `read()` to immediately unwrap, most of the cost of a
+warm cache hit. Override `fetch` instead to change how requests are made.
 [docs/api.md](docs/api.md#extending-remotefile) has the measurement.
 
 ## Docs
 
+- [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
+  — the byte-range cache to put under these handles for remote reads, built on
+  the `fetchBytes` seam above
 - [docs/api.md](docs/api.md) — every method, option and type, the edge behaviors
   all three implementations share, and the `fetchBytes` seam for subclasses
 - [docs/optimizations.md](docs/optimizations.md) — why reads, requests and
