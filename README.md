@@ -80,20 +80,18 @@ subclass that already has the bytes — a range cache, say. Overriding it skips
 wrapping them in a `Response` for `read()` to immediately unwrap, which measured
 as most of the cost of a warm cache hit. Override `fetch` instead to change how
 requests are made; a subclass that only wraps `fetch` keeps working untouched.
+[docs/api.md](docs/api.md#extending-remotefile) has the measurement.
 
 ## Docs
 
-- [docs/api.md](docs/api.md) — every class, method, option and type, and the
-  edge behaviors all three implementations share
+- [docs/api.md](docs/api.md) — every method, option and type, the edge behaviors
+  all three implementations share, and the `fetchBytes` seam for subclasses
 - [docs/optimizations.md](docs/optimizations.md) — why reads, requests and
   buffers look the way they do, and what each choice cost or saved
 - [docs/local-files.md](docs/local-files.md) — the `LocalFile` descriptor: why
   it is held, how a stale one recovers, and why an idle timeout closes it
-- [docs/subclassing.md](docs/subclassing.md) — `fetchBytes` vs `fetch`, and the
-  measurement that decided which seam to use
 - [docs/browser-builds.md](docs/browser-builds.md) — the `browser` export
-  condition, the `LocalFile` stub, Electron, and how the packed artifact is
-  tested
+  condition, the `LocalFile` stub, and how the packed artifact is tested
 
 ## See also
 
