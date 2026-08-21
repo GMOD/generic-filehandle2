@@ -48,17 +48,14 @@ default the way they do.
 
 - [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
   is the byte-range cache to put underneath these handles when reading remote
-  files, and is built on the `fetchBytes` seam described in `docs/api.md`.
-- [docs/api.md](docs/api.md) documents every method, option and type, the
-  behavior all three implementations share, and how to extend `RemoteFile`.
+  files.
+- [docs/api.md](docs/api.md) documents every method, option and type, and how to
+  extend `RemoteFile`.
 - [docs/optimizations.md](docs/optimizations.md) explains why reads, requests
   and buffers work the way they do, and what each of those choices measured.
 - [docs/local-files.md](docs/local-files.md) covers the file descriptor that
-  `LocalFile` keeps open: why it holds one, how it recovers when one goes stale
-  on a network filesystem, and why an idle timeout closes it again.
-- [docs/browser-builds.md](docs/browser-builds.md) covers the `browser` export
-  condition, the `LocalFile` stub it points at, and how the packed artifact is
-  tested.
+  `LocalFile` keeps open, and the stub that replaces the class in browser
+  builds.
 
 ## See also
 

@@ -29,27 +29,20 @@ user dragged into a browser tab.
 
 ## `read(length, position, opts?)`
 
-Reads that many bytes starting at that byte offset, and resolves to a
-`Uint8Array<ArrayBuffer>`. The generic parameter promises a plain `ArrayBuffer`
-rather than a `SharedArrayBuffer`, which is what makes the result transferable
-to a worker and decodable by `TextDecoder`.
+Reads that many bytes starting at that byte offset. The result is typed
+`Uint8Array<ArrayBuffer>` rather than plain `Uint8Array`, which promises the
+buffer underneath is not a `SharedArrayBuffer`, so it can be transferred to a
+worker and decoded by `TextDecoder`.
 
-All three implementations share three edge behaviors:
+All three implementations behave the same way at the edges:
 
-- **A short read is not an error.** Reading past the end of the file returns
-  whatever bytes were left, and reading entirely past it returns an empty array.
-  That is how a caller detects the end of a file without calling `stat()` first,
-  and
-  [optimizations.md](optimizations.md#detecting-the-end-of-a-file-without-asking-how-long-it-is)
-  explains why it works that way.
-- **A length of zero returns an empty array without touching the source.** For
-  `BlobFile` this is a correctness fix rather than an optimization, since some
-  browsers crash when asked to read zero bytes from a local file.
-- **`RemoteFile` rejects an offset that is not a whole number, or is negative,
-  or is `NaN`**, throwing a `TypeError` that names both the length and the
-  position it was given. A corrupt index produces `NaN` through ordinary
-  arithmetic, and without this it would travel all the way to the server as a
-  range header that can only be rejected, a long way from the actual bug.
+- Reading past the end of the file returns whatever bytes were left, and reading
+  entirely past it returns an empty array, rather than throwing.
+- A length of zero returns an empty array without touching the source.
+- `RemoteFile` throws a `TypeError` for an offset that is negative, fractional
+  or `NaN`, naming both the length and position it was given.
+
+[optimizations.md](optimizations.md#reads) explains what each of those is for.
 
 ## `readFile(options?)`
 
@@ -73,11 +66,11 @@ await file.readFile({ encoding: 'utf8', signal })
 
 Resolves to `{ size: number }`. `LocalFile` calls node's `stat` and `BlobFile`
 reads `blob.size`. `RemoteFile` has no way to ask directly, so it learns the
-size as a side effect of reading, which
-[optimizations.md](optimizations.md#stat-costs-at-most-one-small-read)
-describes. When CORS hides the `Content-Range` header it resolves to
-`{ size: 0 }` rather than throwing, so a caller that only wants to display a
-size degrades instead of failing.
+size as a side effect of reading, as described in
+[optimizations.md](optimizations.md#stat-costs-at-most-one-small-read). When
+CORS hides the `Content-Range` header it resolves to `{ size: 0 }` rather than
+throwing, so a caller that only wants to display a size degrades instead of
+failing.
 
 ## `close()`
 
@@ -90,7 +83,8 @@ lifecycle, including the idle timeout that closes the descriptor for you.
 ## Options
 
 `FilehandleOptions` can be passed to any individual call, and to the
-`RemoteFile` constructor:
+`RemoteFile` constructor. Everything other than `signal` and `encoding` applies
+to `RemoteFile` only.
 
 | option       | type                                      | notes                                                                                            |
 | ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -101,20 +95,15 @@ lifecycle, including the idle timeout that closes the descriptor for you.
 | `fetch`      | `(input, init?) => Promise<Response>`     | defaults to `globalThis.fetch`, and the response it returns need not be the platform's own class |
 | `onProgress` | `(bytesReceived: number, total?) => void` | opt-in, and switches the read to a streaming path that reports at most one tick every 50ms       |
 
-Everything other than `signal` and `encoding` applies to `RemoteFile` only.
-
 `RemoteFile` passes the signal to `fetch`, which genuinely cancels the request
 in flight. Neither node's `fs` nor a `Blob` read can be cancelled once started,
 so `LocalFile` and `BlobFile` instead check the signal on both sides of the
-read: the read itself runs to completion, but its bytes never reach a caller
-that has given up, and the promise rejects the same way every other
-implementation's would. In other words, cancellation behaves uniformly at the
-API, but it is not a promise that the underlying work stopped. A signal passed
-to an individual call takes precedence over one given to the constructor, which
-in turn takes precedence over one passed through `overrides`.
-
-The reasoning behind the range header rule and the progress path is in
-[optimizations.md](optimizations.md#requests).
+read: the read runs to completion, but its bytes never reach a caller that has
+given up, and the promise rejects as any other implementation's would.
+Cancellation therefore behaves uniformly at the API, but it is not a promise
+that the underlying work stopped. A signal passed to an individual call takes
+precedence over one given to the constructor, which in turn takes precedence
+over one passed through `overrides`.
 
 ## Constructor options
 
@@ -130,25 +119,21 @@ new BlobFile(blob)
 - `cacheFd`, default `true`, keeps one descriptor open across reads instead of
   opening and closing one for every read.
 - `fdIdleTimeoutMs`, default `30000`, closes that descriptor once nothing has
-  read from the file for that long. Setting it to `0` keeps the descriptor open
-  until `close()` is called.
+  read from the file for that long. Setting it to `0` keeps it open until
+  `close()` is called.
 
 ## Extending `RemoteFile`
 
-There are two places to override, and choosing the wrong one costs most of the
-read:
-
-| override                                       | when                                                    |
-| ---------------------------------------------- | ------------------------------------------------------- |
-| `protected fetchBytes(length, position, opts)` | you can produce the bytes yourself                      |
-| `public fetch(input, init?)`                   | you want the requests themselves to be made differently |
+Override `protected fetchBytes(length, position, opts)` when you can produce the
+bytes yourself, and `public fetch(input, init?)` when you want the requests
+themselves made differently.
 
 The case that motivated the first is
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle),
 which caches byte ranges underneath a parser. When `fetch` was the only thing a
 subclass could override, a subclass that already held the bytes had to wrap them
 in a `Response` that `read()` would immediately unwrap again. Measured on that
-class with its cache fully warm and no network involved at all, that round trip
+class with its cache fully warm and no network involved, that round trip
 accounted for **69-77% of the entire read** — 0.36ms against 0.08ms for a 0.25MB
 read, and 6.15ms against 1.90ms for a 16MB one — which is essentially the whole
 cost of a cache hit.
@@ -162,20 +147,16 @@ class CachingFile extends RemoteFile {
 }
 ```
 
-`read()` validates its arguments and handles a zero-length read before it
-reaches the seam, so every subclass gets both of those for free. Everything
-HTTP-specific — the 416 translation, recording the size from `Content-Range`,
-and the copy that stops an over-delivered body being retained — lives inside the
-default `fetchBytes`, so a subclass that replaces it is opting out of HTTP,
-which it has already replaced anyway, rather than out of a correctness fix it
-needed. Note that `stat()` reads through `read()`, so it goes through an
+`read()` validates its arguments and handles a zero-length read before reaching
+the seam, so every subclass gets both for free. Everything HTTP-specific lives
+inside the default `fetchBytes`, so a subclass that replaces it is opting out of
+HTTP, which it has already replaced anyway, rather than out of a correctness fix
+it needed. Note that `stat()` reads through `read()`, so it goes through an
 override too.
 
-Override `fetch` instead when you want to change how requests are made, for
-authentication, logging, retries or proxying. Supplying a `fetch` through the
-constructor is usually better than subclassing, because it sits below the base
-implementation, so the Chrome CORS retry and the error wrapping still apply to
-whatever it returns.
+Supplying a `fetch` through the constructor is usually better than subclassing
+it, because it sits below the base implementation, so the Chrome CORS retry and
+the error wrapping still apply to whatever it returns.
 
 ## Types
 
