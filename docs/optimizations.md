@@ -1,138 +1,155 @@
 # Optimizations
 
-This package is `read(length, position)` over three sources, so nothing here is
-a clever algorithm. What it has instead is decisions about **bytes that get
-copied, requests that get made, and memory retained after a read returns**, each
-one from a consumer hitting it.
+This package is not much more than `read(length, position)` over three kinds of
+source, so nothing in it is a clever algorithm. What it does have is a set of
+decisions about which bytes get copied, which requests get made, and how much
+memory stays alive after a read returns. Every one of them came from a consumer
+running into it.
 
-Those consumers are indexed readers, and their shape is what everything below is
-tuned for: many small positional reads, issued concurrently, against a file
-whose size is unknown until something asks. [api.md](api.md) documents the
-surface; [local-files.md](local-files.md) covers the descriptor policy, the
-largest win in the package.
+Those consumers are indexed readers, and the way they read is what all of this
+is tuned for: many small positional reads, issued concurrently, against a file
+whose size is not known until something asks for it. [api.md](api.md) documents
+the interface itself, and [local-files.md](local-files.md) covers the file
+descriptor policy, which is the largest single win in the package.
 
 ## Reads
 
-### Zero-length reads never reach the source
+### A zero-length read never reaches the source
 
-`read(0, pos)` returns empty immediately. For `RemoteFile` that saves a
-pointless request; for `BlobFile` it is a correctness fix, because some browsers
-crash on a zero-byte read of a local file. Indexed readers generate these from
-empty chunks more often than you would expect.
+`read(0, pos)` returns an empty array immediately. For `RemoteFile` that avoids
+a pointless request. For `BlobFile` it is a correctness fix rather than an
+optimization, because some browsers crash when asked to read zero bytes from a
+local file. Indexed readers produce these from empty chunks more often than you
+might expect.
 
-### EOF without a size oracle
+### Detecting the end of a file without asking how long it is
 
-Reading past the end returns a short read, or an empty array, rather than
-throwing — and `RemoteFile` keeps that true by translating HTTP **416 Range Not
-Satisfiable** into an empty read.
+Reading past the end of a file returns however many bytes were left, or an empty
+array if there were none, rather than throwing. `RemoteFile` keeps that true
+over HTTP by translating a 416 Range Not Satisfiable response into an empty
+read.
 
-That lets a caller walk to the end of a file without a size at all. The
-alternative — `stat()` before every speculative read — is another round trip
-remotely, which is why indexed readers over-read past a block boundary instead
-of asking how long the file is.
+That is what allows a caller to walk to the end of a file without ever learning
+its size. The alternative would be calling `stat()` before every speculative
+read, which over the network means another round trip, and it is the reason
+indexed readers deliberately read past a block boundary instead of asking how
+long the file is.
 
-### An over-delivering server does not pin its body
+### A server that sends too much does not keep its body alive
 
-A server that ignores the range header sends the entire file. Returning a
-`subarray` view of the first `length` bytes would keep the **whole body** alive
-for as long as the caller holds those few — a 4KB read retaining 2GB. So that
-case copies the slice out, and only that case: when the server honored the range
-the bytes are returned as they came, with no copy.
+A server that ignores the range header sends the whole file back. If the read
+returned a `subarray` view of the first `length` bytes of that response, the
+entire body would stay in memory for as long as the caller held on to those few
+bytes, so a 4KB read could retain 2GB. That case therefore copies the requested
+slice out. It is the only case that copies: when the server honored the range,
+the bytes are returned exactly as they arrived.
 
-The progress path in `util.ts` reasons the same way. Its pre-sized buffer is
-returned as-is when it filled exactly and copied out when the body came up
-short, so the caller never receives bytes whose `.buffer` is longer than the
-view over it — the kind of thing that goes wrong three libraries downstream.
+The progress path in `util.ts` follows the same rule. Its pre-sized buffer is
+returned as it is when it filled up exactly, and copied out when the body turned
+out to be shorter, so a caller never ends up holding bytes whose underlying
+`.buffer` is longer than the view over them.
 
 ## Requests
 
-### `stat()` costs one small read, at most
+### `stat()` costs at most one small read
 
-HTTP gives no size without asking, and `HEAD` — the textbook answer — is
-mishandled by proxies and object stores and often hidden by CORS. So `stat()`
-issues a 10-byte ranged read and takes the total out of `Content-Range`
-(`bytes 0-9/1234`).
+HTTP will not tell you how large a file is without being asked, and `HEAD`, the
+textbook way to ask, is mishandled by enough proxies and object stores to be
+unreliable, and is often hidden by CORS besides. So `stat()` issues a 10-byte
+ranged read instead and takes the total from the `Content-Range` header, which
+comes back in the form `bytes 0-9/1234`.
 
-More usefully, **every read already does that**: any 206, and any 200 at
-position 0, records the size on the way past, so a reader that has read anything
-gets its `stat()` for free. If CORS hides the header, `stat()` returns
-`{ size: 0 }` — a caller displaying a size shows nothing instead of crashing a
-track.
+More usefully, every read already does this. Any 206 response, and any 200
+response to a read at position 0, records the size on its way past, so a reader
+that has read anything at all gets its `stat()` for free. If CORS hides the
+header, `stat()` returns `{ size: 0 }` instead of throwing, so a caller that
+only wanted to display a size shows nothing rather than failing a whole track.
 
-`readFile()` records the size too, but only from a 200: a 206 there means the
-caller supplied their own range header, and the body length says nothing about
-the file.
+`readFile()` records the size too, but only from a 200 response. A 206 there
+means the caller supplied a range header of their own, and the length of that
+body says nothing about the length of the file.
 
-### Concurrent `stat()` calls share one probe
+### Concurrent `stat()` calls share a single request
 
-Several readers calling `stat()` at once is normal — it is usually the first
-thing each does — so they share one in-flight probe. It is cleared once it
-settles, so a failed probe does not poison the object.
+Several readers calling `stat()` on the same file at once is normal, since it is
+usually the first thing each of them does, so they all await one in-flight
+request rather than each issuing their own. The shared promise is cleared once
+it settles, so a probe that fails does not prevent later calls from trying
+again.
 
-### A caller's `Range` header cannot double up with ours
+### A caller's `Range` header cannot end up alongside ours
 
-HTTP header names are case-insensitive; JavaScript object keys are not. A caller
-passing `{ Range: 'bytes=0-99' }` and a ranged read adding `range` produce **two
-keys**, and `fetch` folds them into one comma-joined multi-range request. The
-server answers correctly, with a `multipart/byteranges` body — and that body,
-MIME boundaries and all, gets handed back as file bytes.
+HTTP header names are case-insensitive, but JavaScript object keys are not. A
+caller passing `{ Range: 'bytes=0-99' }` and a ranged read adding its own
+`range` therefore produce two separate keys, and `fetch` combines them into a
+single comma-joined multi-range request. The server answers that correctly, with
+a `multipart/byteranges` body, and that body — MIME boundaries and all — would
+be handed back to the caller as though it were file content.
 
-So the merge lowercases both sides and lets the library's range win. A caller
-who wants a particular range asks with `read(length, position)`.
+The header merge therefore lowercases both sides and lets the library's own
+range header win. A caller who wants a particular range asks for it through
+`read(length, position)`.
 
-### Chrome's cached-CORS bug gets one retry
+### Chrome's cached CORS responses get one retry
 
-A `Failed to fetch` from a request that should have worked is, in Chrome, often
-[a cached CORS response](https://github.com/GMOD/jbrowse-components/pull/1511)
-rather than a network failure. It is retried once with `cache: 'reload'`, with a
-console warning so it is visible rather than magic. Anything else is wrapped
-with the URL and rethrown, `cause` preserved.
+When a request that should have worked fails with `Failed to fetch` in Chrome,
+the cause is often
+[a CORS response that Chrome cached](https://github.com/GMOD/jbrowse-components/pull/1511)
+rather than an actual network failure. Such a request is retried once with
+`cache: 'reload'`, and a warning is logged so that the retry is visible rather
+than mysterious. Any other failure is wrapped with the URL it came from and
+rethrown, with the original error kept as `cause`.
 
 ## Memory and copies
 
-### Progress streams into one pre-sized buffer
+### Progress reporting streams into a single pre-sized buffer
 
-With `onProgress` set, the body is streamed straight into a buffer sized from
-`Content-Length`: no per-chunk array, no concatenation pass, one allocation for
-the whole download. Two things the naive version gets wrong, both handled:
+When `onProgress` is set, the response body is streamed directly into a buffer
+sized from `Content-Length`, so there is no array of chunks, no concatenation
+pass at the end, and one allocation for the whole download. There are two things
+a naive version of this gets wrong, and both are handled:
 
-- **A decoded body can exceed `Content-Length`** — gzip transfer-encoding
-  reports the compressed length — so the buffer grows rather than overflowing.
-- **A malformed or missing `Content-Length`** parses to `undefined`, not `NaN`,
-  which would survive an `=== undefined` check and poison every arithmetic use
-  downstream.
+- A decoded body can be longer than `Content-Length`, because gzip
+  transfer-encoding reports the compressed length. The buffer grows rather than
+  overflowing.
+- A malformed or missing `Content-Length` is parsed to `undefined` rather than
+  `NaN`, which would otherwise pass an `=== undefined` check and go on to poison
+  every calculation downstream.
 
-Without a usable length there is no fraction to report, so it falls back to a
-one-shot read and a single completion tick instead of buffering chunks for
-nothing. Ticks are throttled to 50ms; a large body yields thousands of chunks,
-and a progress bar redrawn per chunk is slower than the download.
+If the length is not usable there is no fraction to report, so the read falls
+back to reading the body in one go and emitting a single completion tick,
+instead of buffering chunks for no reason. Ticks are throttled to one every
+50ms, because a large body arrives as thousands of chunks and a progress bar
+redrawn for each one is slower than the download itself.
 
-It is opt-in because streaming is not free. Omitting `onProgress` keeps
-`Response.bytes()`, one call into the platform — most callers are machines, not
-people, and `@gmod/bam` reading an index should not pay for a reader loop
-nothing will display.
+Progress is opt-in because streaming is not free. A caller that omits
+`onProgress` gets `Response.bytes()`, which is a single call into the platform.
+Most callers here are machines rather than people, and `@gmod/bam` reading an
+index should not pay for a reader loop whose output nothing will display.
 
-### Two platform details
+### Two details about the platform
 
-`Response.bytes()` skips the `new Uint8Array(...)` wrapper `arrayBuffer()`
-needs, but is missing from some `lib.dom.d.ts` versions — hence the fallback
-check written as an optional chain with an eslint suppression, TypeScript
-believing it is always defined and older runtimes disagreeing.
+`Response.bytes()` avoids the `new Uint8Array(...)` wrapper that `arrayBuffer()`
+needs, but it is missing from some versions of `lib.dom.d.ts`. That is why the
+fallback is written as an optional chain with an eslint suppression above it:
+TypeScript believes the method is always there, and older runtimes disagree.
 
-The progress path tests for a `body` property rather than `instanceof Response`,
-because a custom `fetch` may return one from another realm or another
-implementation, where `instanceof` fails. The symptom is a progress bar stuck at
-zero for a whole download with everything else working.
+The progress path checks for a `body` property rather than using
+`instanceof Response`, because a custom `fetch` may return a response from
+another realm or from another implementation entirely, and `instanceof` fails on
+both. The symptom when it does is a progress bar that sits at zero for an entire
+download while everything else works normally.
 
-## Caching lives above this package
+## Caching belongs above this package
 
-Only the layer that knows the access pattern knows what will be asked for twice.
+Only a layer that knows the access pattern knows what is worth keeping, so
+caching lives above the filehandle rather than inside it.
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
-wraps a handle to cache byte ranges and coalesce a query's reads into a few
-requests, through the `fetchBytes` seam ([api.md](api.md#extending-remotefile),
-where skipping the `Response` round trip was worth 69-77% of a warm read). Above
-that, `@gmod/bam` and `@gmod/tabix` cache decompressed chunks keyed by virtual
-offset.
+wraps a filehandle to cache byte ranges and coalesce a query's scattered reads
+into a few requests, which it does through the `fetchBytes` seam described in
+[api.md](api.md#extending-remotefile) — skipping the round trip through a
+`Response` there was worth 69-77% of a warm read. Above that again, `@gmod/bam`
+and `@gmod/tabix` cache decompressed chunks keyed by virtual offset.
 
-Caching inside a filehandle would hold memory neither of those layers can see or
-bound.
+A filehandle that cached bytes internally would hold memory that neither of
+those layers can see or bound.

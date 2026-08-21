@@ -1,12 +1,12 @@
 # API
 
-Three classes implement one interface, `GenericFilehandle`:
+Three classes implement a single interface, `GenericFilehandle`:
 
-| class        | source          | where it runs                         |
-| ------------ | --------------- | ------------------------------------- |
-| `LocalFile`  | a path on disk  | node only — stubbed in browser builds |
-| `RemoteFile` | an HTTP(S) URL  | anywhere `fetch` exists               |
-| `BlobFile`   | a `Blob`/`File` | anywhere `Blob` exists                |
+| class        | reads from      | where it runs                                   |
+| ------------ | --------------- | ----------------------------------------------- |
+| `LocalFile`  | a path on disk  | node only, and is stubbed out in browser builds |
+| `RemoteFile` | an HTTP(S) URL  | anywhere `fetch` exists                         |
+| `BlobFile`   | a `Blob`/`File` | anywhere `Blob` exists                          |
 
 ```ts
 interface GenericFilehandle {
@@ -22,39 +22,47 @@ interface GenericFilehandle {
 }
 ```
 
-Consumers should accept the interface, not a class: `@gmod/bam`, `@gmod/tabix`,
-`@gmod/bbi` and the rest never learn whether the bytes came from a disk, a
-server, or a file dragged into a browser tab.
+Consumers should accept the interface rather than any particular class, which is
+what lets `@gmod/bam`, `@gmod/tabix`, `@gmod/bbi` and the rest work without ever
+learning whether the bytes came from a disk, from a server, or from a file the
+user dragged into a browser tab.
 
 ## `read(length, position, opts?)`
 
-Bytes at a byte offset, as `Uint8Array<ArrayBuffer>`. The generic parameter
-promises a plain `ArrayBuffer` rather than a `SharedArrayBuffer`, so the result
-is transferable to a worker and decodable by `TextDecoder`.
+Reads that many bytes starting at that byte offset, and resolves to a
+`Uint8Array<ArrayBuffer>`. The generic parameter promises a plain `ArrayBuffer`
+rather than a `SharedArrayBuffer`, which is what makes the result transferable
+to a worker and decodable by `TextDecoder`.
 
-Three edge behaviors every implementation shares:
+All three implementations share three edge behaviors:
 
-- **A short read is not an error.** Reading past the end returns fewer bytes,
-  and reading entirely past it returns an empty array — which is how a caller
-  detects EOF without a separate `stat()`
-  ([why](optimizations.md#eof-without-a-size-oracle)).
-- **`length === 0` returns empty without touching the source.** For `BlobFile`
-  that is a correctness fix: some browsers crash on a zero-byte read.
-- **`RemoteFile` rejects a non-integer, negative or `NaN` offset** with a
-  `TypeError` naming both values. A corrupt index yields `NaN` from ordinary
-  arithmetic, which would otherwise reach the server as an unanswerable range
-  header, well away from the actual bug.
+- **A short read is not an error.** Reading past the end of the file returns
+  whatever bytes were left, and reading entirely past it returns an empty array.
+  That is how a caller detects the end of a file without calling `stat()` first,
+  and
+  [optimizations.md](optimizations.md#detecting-the-end-of-a-file-without-asking-how-long-it-is)
+  explains why it works that way.
+- **A length of zero returns an empty array without touching the source.** For
+  `BlobFile` this is a correctness fix rather than an optimization, since some
+  browsers crash when asked to read zero bytes from a local file.
+- **`RemoteFile` rejects an offset that is not a whole number, or is negative,
+  or is `NaN`**, throwing a `TypeError` that names both the length and the
+  position it was given. A corrupt index produces `NaN` through ordinary
+  arithmetic, and without this it would travel all the way to the server as a
+  range header that can only be rejected, a long way from the actual bug.
 
 ## `readFile(options?)`
 
-The whole file: `Uint8Array<ArrayBuffer>`, or a `string` when an encoding is
-given. The overloads make that a compile-time distinction rather than a union
-the caller has to narrow.
+Reads the whole file, resolving to a `Uint8Array<ArrayBuffer>`, or to a `string`
+when an encoding is given. The two overloads make that a compile-time
+distinction, so the caller does not have to narrow a `Uint8Array | string` union
+afterwards.
 
-Both spellings of utf8 work everywhere. `LocalFile` hands the option to node's
-`readFile`, so it takes any encoding node does; `RemoteFile` and `BlobFile`
-decode utf8 and throw `unsupported encoding: <x>` otherwise. Either a bare
-encoding string or an options object is accepted:
+Both spellings of utf8 are accepted everywhere. `LocalFile` passes the option
+through to node's own `readFile` and therefore takes any encoding node takes,
+while `RemoteFile` and `BlobFile` decode utf8 and throw
+`unsupported encoding: <x>` for anything else. Every implementation accepts
+either a bare encoding string or an options object:
 
 ```js
 await file.readFile('utf8')
@@ -63,44 +71,49 @@ await file.readFile({ encoding: 'utf8', signal })
 
 ## `stat()`
 
-`{ size: number }`. `LocalFile` calls node's `stat`, `BlobFile` reads
-`blob.size`, and `RemoteFile` has no size oracle so it learns the size from
-reading ([how](optimizations.md#stat-costs-one-small-read-at-most)). Where CORS
-hides `Content-Range` it yields `{ size: 0 }` rather than throwing, so a caller
-that only wants to display a size degrades instead of failing.
+Resolves to `{ size: number }`. `LocalFile` calls node's `stat` and `BlobFile`
+reads `blob.size`. `RemoteFile` has no way to ask directly, so it learns the
+size as a side effect of reading, which
+[optimizations.md](optimizations.md#stat-costs-at-most-one-small-read)
+describes. When CORS hides the `Content-Range` header it resolves to
+`{ size: 0 }` rather than throwing, so a caller that only wants to display a
+size degrades instead of failing.
 
 ## `close()`
 
-Releases what the handle holds, which is only ever `LocalFile`'s descriptor. It
-is **a hint, not a teardown**: reading again reopens, and calling it twice is
-fine. [local-files.md](local-files.md) covers the lifecycle, including the idle
-timeout that closes it for you.
+Releases whatever the handle is holding on to, which in practice means the file
+descriptor that `LocalFile` keeps open. It is a hint that the caller is finished
+rather than a teardown: reading afterwards simply opens the file again, and
+calling it twice is harmless. [local-files.md](local-files.md) describes that
+lifecycle, including the idle timeout that closes the descriptor for you.
 
 ## Options
 
-`FilehandleOptions`, accepted per call and (for `RemoteFile`) in the
-constructor:
+`FilehandleOptions` can be passed to any individual call, and to the
+`RemoteFile` constructor:
 
-| option       | type                                      | notes                                                                      |
-| ------------ | ----------------------------------------- | -------------------------------------------------------------------------- |
-| `signal`     | `AbortSignal`                             | see below                                                                  |
-| `headers`    | `Record<string, string>`                  | merged into every request; the library's range header wins over a caller's |
-| `overrides`  | `Omit<RequestInit, 'headers'>`            | extra `fetch` params, applied over the `method`/`redirect`/`mode` defaults |
-| `encoding`   | `BufferEncoding`                          | `readFile` only                                                            |
-| `fetch`      | `(input, init?) => Promise<Response>`     | default `globalThis.fetch`; the `Response` need not be the platform's      |
-| `onProgress` | `(bytesReceived: number, total?) => void` | opt-in; switches to a streaming read, ticks throttled to 50ms              |
+| option       | type                                      | notes                                                                                            |
+| ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `signal`     | `AbortSignal`                             | described below                                                                                  |
+| `headers`    | `Record<string, string>`                  | merged into every request, except that a range header set by the library wins over a caller's    |
+| `overrides`  | `Omit<RequestInit, 'headers'>`            | extra `fetch` parameters, applied over the `method`, `redirect` and `mode` defaults set here     |
+| `encoding`   | `BufferEncoding`                          | `readFile` only                                                                                  |
+| `fetch`      | `(input, init?) => Promise<Response>`     | defaults to `globalThis.fetch`, and the response it returns need not be the platform's own class |
+| `onProgress` | `(bytesReceived: number, total?) => void` | opt-in, and switches the read to a streaming path that reports at most one tick every 50ms       |
 
-Everything but `signal` and `encoding` is `RemoteFile`-only.
+Everything other than `signal` and `encoding` applies to `RemoteFile` only.
 
-**`signal`.** `RemoteFile` passes it to `fetch`, which genuinely cancels the
-request. **Neither node's `fs` nor a `Blob` read can be cancelled**, so
-`LocalFile` and `BlobFile` check it either side of the read: the read completes
-regardless, but the bytes never reach a caller that gave up and the promise
-rejects like every other implementation's. Cancellation is uniform at the API;
-it is not a promise the work stopped. A per-call signal wins over the
-constructor's, which wins over one smuggled through `overrides`.
+`RemoteFile` passes the signal to `fetch`, which genuinely cancels the request
+in flight. Neither node's `fs` nor a `Blob` read can be cancelled once started,
+so `LocalFile` and `BlobFile` instead check the signal on both sides of the
+read: the read itself runs to completion, but its bytes never reach a caller
+that has given up, and the promise rejects the same way every other
+implementation's would. In other words, cancellation behaves uniformly at the
+API, but it is not a promise that the underlying work stopped. A signal passed
+to an individual call takes precedence over one given to the constructor, which
+in turn takes precedence over one passed through `overrides`.
 
-The range-header and progress behaviors have their reasoning in
+The reasoning behind the range header rule and the progress path is in
 [optimizations.md](optimizations.md#requests).
 
 ## Constructor options
@@ -111,29 +124,34 @@ new RemoteFile(url, { fetch, headers, overrides, signal })
 new BlobFile(blob)
 ```
 
-`LocalFile`'s two are the descriptor policy, explained in
-[local-files.md](local-files.md):
+`LocalFile`'s two options control how it manages its file descriptor, which
+[local-files.md](local-files.md) explains in full:
 
-- `cacheFd` (default `true`) — hold one descriptor across reads
-- `fdIdleTimeoutMs` (default `30000`) — release it after this long with no read;
-  `0` holds it until `close()`
+- `cacheFd`, default `true`, keeps one descriptor open across reads instead of
+  opening and closing one for every read.
+- `fdIdleTimeoutMs`, default `30000`, closes that descriptor once nothing has
+  read from the file for that long. Setting it to `0` keeps the descriptor open
+  until `close()` is called.
 
 ## Extending `RemoteFile`
 
-Two seams, and picking the wrong one costs most of the read:
+There are two places to override, and choosing the wrong one costs most of the
+read:
 
-| override                                       | when                               |
-| ---------------------------------------------- | ---------------------------------- |
-| `protected fetchBytes(length, position, opts)` | you can produce the bytes          |
-| `public fetch(input, init?)`                   | you want requests made differently |
+| override                                       | when                                                    |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| `protected fetchBytes(length, position, opts)` | you can produce the bytes yourself                      |
+| `public fetch(input, init?)`                   | you want the requests themselves to be made differently |
 
-The motivating case for the first is
+The case that motivated the first is
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle),
-which caches byte ranges under a parser. With only `fetch` to override, a
-subclass holding the bytes had to wrap them in a `Response` that `read()`
-immediately unwrapped — measured on that class fully warm, with no network
-involved, the round trip was **69-77% of the entire read** (0.36 → 0.08 ms at
-0.25MB, 6.15 → 1.90 ms at 16MB), the whole cost of a cache hit.
+which caches byte ranges underneath a parser. When `fetch` was the only thing a
+subclass could override, a subclass that already held the bytes had to wrap them
+in a `Response` that `read()` would immediately unwrap again. Measured on that
+class with its cache fully warm and no network involved at all, that round trip
+accounted for **69-77% of the entire read** — 0.36ms against 0.08ms for a 0.25MB
+read, and 6.15ms against 1.90ms for a 16MB one — which is essentially the whole
+cost of a cache hit.
 
 ```js
 class CachingFile extends RemoteFile {
@@ -144,22 +162,26 @@ class CachingFile extends RemoteFile {
 }
 ```
 
-`read()` keeps argument validation and the zero-length short circuit in front of
-the seam, so every subclass gets those. Everything HTTP — 416 handling,
-`Content-Range` size recording, the over-delivery slice — lives _inside_ the
-default `fetchBytes`, so an override opts out of HTTP, which it has already
-replaced, rather than out of a correctness fix it needed. `stat()` runs through
-`read()`, so it goes through an override too.
+`read()` validates its arguments and handles a zero-length read before it
+reaches the seam, so every subclass gets both of those for free. Everything
+HTTP-specific — the 416 translation, recording the size from `Content-Range`,
+and the copy that stops an over-delivered body being retained — lives inside the
+default `fetchBytes`, so a subclass that replaces it is opting out of HTTP,
+which it has already replaced anyway, rather than out of a correctness fix it
+needed. Note that `stat()` reads through `read()`, so it goes through an
+override too.
 
-Override `fetch` for auth, logging, retries or proxying. The constructor's
-`fetch` option is usually better than subclassing: it sits _below_ the base
-implementation, so the Chrome cached-CORS retry and error wrapping still apply
-to what it returns.
+Override `fetch` instead when you want to change how requests are made, for
+authentication, logging, retries or proxying. Supplying a `fetch` through the
+constructor is usually better than subclassing, because it sits below the base
+implementation, so the Chrome CORS retry and the error wrapping still apply to
+whatever it returns.
 
 ## Types
 
-`BufferEncoding` is declared here rather than imported from `@types/node`, so
-consuming code does not need node's types to typecheck a `readFile` call.
-`ReadFileOptions` is `FilehandleOptions` without `encoding` (the bytes
-overload); `ReadFileTextOptions` is an encoding string or options carrying one
-(the string overload).
+`BufferEncoding` is declared in this package rather than imported from
+`@types/node`, so that consuming code does not need node's types installed to
+typecheck a call to `readFile`. `ReadFileOptions` is `FilehandleOptions` without
+`encoding`, which is the overload returning bytes, and `ReadFileTextOptions` is
+either an encoding string or an options object carrying one, which is the
+overload returning a string.

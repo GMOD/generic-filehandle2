@@ -19,85 +19,46 @@ const buf1 = await remote.read(/* length */ 10, /* position */ 10) // range requ
 const buf2 = await remote.readFile()
 ```
 
-For remote reads under an indexed parser, put
+If you are reading a remote file through an indexed parser, put
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
-underneath: `RemoteFileWithRangeCache` is a drop-in `RemoteFile` that caches
-byte ranges in chunks and coalesces a query's many small reads into a few
-requests.
+underneath it. Its `RemoteFileWithRangeCache` is a drop-in replacement for
+`RemoteFile` that caches byte ranges in chunks, so that a query's many small
+reads turn into a few requests.
 
 ## API
 
-### `async read(length: number, position: number, opts?: Options): Promise<Uint8Array>`
+Every filehandle has the same four methods:
 
-- `length` - number of bytes to read
-- `position` - byte offset to read from
+```js
+await file.read(length, position, opts) // the bytes at a byte offset
+await file.readFile(opts) // the whole file, as bytes or as a string
+await file.stat() // the file size, as { size }
+await file.close() // close the file descriptor, if one is open
+```
 
-### `async readFile(opts?: Options): Promise<Uint8Array | string>`
+The options they take, the behavior they share, and the seam for extending
+`RemoteFile` are all covered in [docs/api.md](docs/api.md).
 
-Returns the full file contents as a `Uint8Array`, or as a `string` if
-`opts.encoding` is set.
-
-### `async stat(): Promise<{ size: number }>`
-
-Returns an object with the `size` of the file. `RemoteFile` learns the size from
-a `Content-Range` header, so the first `stat()` costs a small range request, and
-a server that does not expose that header through CORS yields `{ size: 0 }`.
-
-### `async close(): Promise<void>`
-
-Releases what the handle holds — for `LocalFile`, its file descriptor. Reading
-again reopens, so this is a hint that the caller is done rather than a teardown.
-
-### Options
-
-All entries are optional.
-
-- `signal` `<AbortSignal>` - passed to the fetch or file read call
-- `headers` `<Record<string, string>>` - extra HTTP headers for remote requests
-- `overrides` `<Object>` - extra fetch params, taking precedence over the
-  defaults this library sets (`method`, `redirect`, `mode`)
-- `encoding` `<string>` - (`readFile` only) `"utf8"`/`"utf-8"` returns a string
-  instead of `Uint8Array`. `LocalFile` takes any encoding node's `readFile`
-  does; the other two handle utf8 only
-- `onProgress` `<(bytesReceived: number, total?: number) => void>` - opt-in
-  download progress for remote reads; setting it streams the response body
-
-### Constructor options
-
-The `RemoteFile` constructor accepts the same Options above, plus:
-
-- `fetch` `<Function>` - custom fetch implementation (defaults to
-  `globalThis.fetch`)
-
-The `LocalFile` constructor accepts:
-
-- `cacheFd` `<boolean>` - keep one descriptor open across reads. Default `true`,
-  worth ~1.9x on the small reads an indexed reader issues; a descriptor gone
-  stale (NFS, Samba) costs a reopen rather than an error
-- `fdIdleTimeoutMs` `<number>` - close a held descriptor once nothing has read
-  from it for this long. Default 30000; `0` holds it until `close()`
-
-### Serving bytes from a subclass
-
-`protected fetchBytes(length, position, opts)` is the seam for a subclass that
-already has the bytes — `@gmod/range-cache-filehandle` is one. It skips wrapping
-them in a `Response` for `read()` to immediately unwrap, most of the cost of a
-warm cache hit. Override `fetch` instead to change how requests are made.
-[docs/api.md](docs/api.md#extending-remotefile) has the measurement.
+`LocalFile` takes two more options in its constructor, `cacheFd` and
+`fdIdleTimeoutMs`, which control how it manages its file descriptor.
+[docs/local-files.md](docs/local-files.md) explains what they do and why they
+default the way they do.
 
 ## Docs
 
 - [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
-  — the byte-range cache to put under these handles for remote reads, built on
-  the `fetchBytes` seam above
-- [docs/api.md](docs/api.md) — every method, option and type, the edge behaviors
-  all three implementations share, and the `fetchBytes` seam for subclasses
-- [docs/optimizations.md](docs/optimizations.md) — why reads, requests and
-  buffers look the way they do, and what each choice cost or saved
-- [docs/local-files.md](docs/local-files.md) — the `LocalFile` descriptor: why
-  it is held, how a stale one recovers, and why an idle timeout closes it
-- [docs/browser-builds.md](docs/browser-builds.md) — the `browser` export
-  condition, the `LocalFile` stub, and how the packed artifact is tested
+  is the byte-range cache to put underneath these handles when reading remote
+  files, and is built on the `fetchBytes` seam described in `docs/api.md`.
+- [docs/api.md](docs/api.md) documents every method, option and type, the
+  behavior all three implementations share, and how to extend `RemoteFile`.
+- [docs/optimizations.md](docs/optimizations.md) explains why reads, requests
+  and buffers work the way they do, and what each of those choices measured.
+- [docs/local-files.md](docs/local-files.md) covers the file descriptor that
+  `LocalFile` keeps open: why it holds one, how it recovers when one goes stale
+  on a network filesystem, and why an idle timeout closes it again.
+- [docs/browser-builds.md](docs/browser-builds.md) covers the `browser` export
+  condition, the `LocalFile` stub it points at, and how the packed artifact is
+  tested.
 
 ## See also
 

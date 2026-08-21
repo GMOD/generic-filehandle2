@@ -1,11 +1,13 @@
 # generic-filehandle2
 
-`docs/` carries the reasoning the code only gestures at: [api.md](docs/api.md),
-[optimizations.md](docs/optimizations.md), [local-files.md](docs/local-files.md)
-(the descriptor policy — held, retried on staleness, released on an idle timer),
-and [browser-builds.md](docs/browser-builds.md). Read the relevant one before
-proposing a change to the read path; several of the obvious simplifications
-there are ruled out by a measurement.
+The `docs/` folder carries the reasoning that the code itself only gestures at.
+[api.md](docs/api.md) documents the interface,
+[optimizations.md](docs/optimizations.md) explains why the read path looks the
+way it does, [local-files.md](docs/local-files.md) covers how `LocalFile`
+manages its file descriptor, and [browser-builds.md](docs/browser-builds.md)
+covers the browser export condition. Read whichever one is relevant before
+proposing a change to the read path, because several of the obvious
+simplifications there are ruled out by a measurement.
 
 ## Package exports
 
