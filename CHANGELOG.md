@@ -1,3 +1,32 @@
+## [2.4.0](https://github.com/GMOD/generic-filehandle2/compare/v2.3.1...v2.4.0) (2026-08-23)
+
+### Bug Fixes
+
+- Accept 'utf-8', and close a descriptor opened during close() ([d673a5c](https://github.com/GMOD/generic-filehandle2/commit/d673a5ca43455ba065ef5dde8b4fe0c1bd072c5e))
+- Give the browser LocalFile stub the real signatures ([d5a9413](https://github.com/GMOD/generic-filehandle2/commit/d5a9413d903a8a77607044bdcd015813ec31a753))
+- Report progress for a Response from another implementation ([61d8a1e](https://github.com/GMOD/generic-filehandle2/commit/61d8a1e3934923b24b78c2cfae018cbdeced886f))
+
+### Chores
+
+- Keep agent worktrees out of the toolchain's way ([4fb3884](https://github.com/GMOD/generic-filehandle2/commit/4fb3884cb48386e82464f29a163f551dcdf9e59f))
+
+### Documentation
+
+- Correct the release command in CONTRIBUTING, and its voice ([f5cf79c](https://github.com/GMOD/generic-filehandle2/commit/f5cf79cd26076eb2767d70ed452f9c8db6bebf75))
+- Add docs/ covering the read path, the descriptor policy, and the browser split ([084a4c9](https://github.com/GMOD/generic-filehandle2/commit/084a4c9e95e6ac224ea4a06ff5b1c518080829e1))
+- Consolidate docs/ and cut the duplication ([32b0f6e](https://github.com/GMOD/generic-filehandle2/commit/32b0f6ead39d8728bdf99a446eff9feb39a806b9))
+- Point at @gmod/range-cache-filehandle, and tighten further ([14e6bcb](https://github.com/GMOD/generic-filehandle2/commit/14e6bcb67e238cd714910e0dd16caf208edeb6cd))
+- Write the docs out in full sentences, and thin the README ([59eb6af](https://github.com/GMOD/generic-filehandle2/commit/59eb6af80537c6b4461cd1acbecde42049d95b39))
+- Fold the browser split into local-files.md, and cut the padding ([3b7f06d](https://github.com/GMOD/generic-filehandle2/commit/3b7f06d7f22a0a6aa475f7e9fa01f6f1d840a6fa))
+
+### Features
+
+- A filehandle says where its bytes come from ([c28df5c](https://github.com/GMOD/generic-filehandle2/commit/c28df5ccbcbade91b25789275a412a2f45c5bd6f))
+
+### Tests
+
+- Check the packed artifact, including the browser condition ([b0e8248](https://github.com/GMOD/generic-filehandle2/commit/b0e82488ee022f2d723c9b0395a3fb41066b6506))
+
 ## [2.3.1](https://github.com/GMOD/generic-filehandle2/compare/v2.3.0...v2.3.1) (2026-08-11)
 
 ### Bug Fixes
