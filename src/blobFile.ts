@@ -16,6 +16,15 @@ import type {
  * the Dalliance Genome Explorer, which is copyright Thomas Down 2006-2011.
  */
 export default class BlobFile implements GenericFilehandle {
+  /**
+   * Declared, and only ever undefined: bytes handed to the page have no address
+   * anyone could go and look at. Spelled out rather than left off, because an
+   * optional interface member is not inherited by the class implementing it —
+   * omitted, `blobFile.source` is a type error instead of the straight "none"
+   * the field exists to give. See {@link GenericFilehandle.source}.
+   */
+  public readonly source?: undefined
+
   private blob: Blob
 
   public constructor(blob: Blob) {

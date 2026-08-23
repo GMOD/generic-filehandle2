@@ -26,7 +26,8 @@ export { default as RemoteFile } from './remoteFile.ts'
  * the point it actually tries to read one.
  */
 export class LocalFile implements GenericFilehandle {
-  private source: string
+  /** the path this stub was handed — see {@link GenericFilehandle.source} */
+  public readonly source: string
 
   // takes the options argument too, for the same reason it takes `source`: a
   // bundle resolving the `browser` condition must still typecheck a call

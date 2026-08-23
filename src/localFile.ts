@@ -83,6 +83,12 @@ function isUnrefable(timer: unknown): timer is { unref: () => void } {
 
 export default class LocalFile implements GenericFilehandle {
   private filename: string
+
+  /** the path this handle reads — see {@link GenericFilehandle.source} */
+  public get source() {
+    return this.filename
+  }
+
   private cacheFd: boolean
   private fdIdleTimeoutMs: number
   private fh: FileHandle | undefined

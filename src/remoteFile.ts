@@ -49,6 +49,12 @@ function getMessage(e: unknown) {
 
 export default class RemoteFile implements GenericFilehandle {
   protected url: string
+
+  /** the URL this handle fetches — see {@link GenericFilehandle.source} */
+  public get source() {
+    return this.url
+  }
+
   private _stat?: Stats
   private statProbe?: Promise<unknown>
   private fetchImplementation: Fetcher

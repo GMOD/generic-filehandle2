@@ -48,6 +48,22 @@ export type ReadFileTextOptions =
   BufferEncoding | (ReadFileOptions & { encoding: BufferEncoding })
 
 export interface GenericFilehandle {
+  /**
+   * Where this handle's bytes come from — a URL for a remote file, a path for a
+   * local one — or undefined when there is no such thing.
+   *
+   * Optional because "undefined" is a real answer and not a gap: a
+   * {@link BlobFile} wraps bytes handed to the page, which have no address
+   * anyone could go and look at. A caller showing a slow or stuck read to a
+   * human wants exactly this distinction, and gets it without having to know
+   * which implementation it is holding.
+   *
+   * It is what the handle was constructed with, so a relative URL stays
+   * relative and a presigned URL keeps its query string. A caller putting one on
+   * screen is the one that has to resolve or redact it.
+   */
+  readonly source?: string
+
   read(
     length: number,
     position: number,

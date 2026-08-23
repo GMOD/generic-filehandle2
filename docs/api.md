@@ -10,6 +10,7 @@ Three classes implement a single interface, `GenericFilehandle`:
 
 ```ts
 interface GenericFilehandle {
+  readonly source?: string
   read(
     length: number,
     position: number,
@@ -79,6 +80,27 @@ descriptor that `LocalFile` keeps open. It is a hint that the caller is finished
 rather than a teardown: reading afterwards simply opens the file again, and
 calling it twice is harmless. [local-files.md](local-files.md) describes that
 lifecycle, including the idle timeout that closes the descriptor for you.
+
+## `source`
+
+Where the handle's bytes come from, so a caller can say which file a slow or
+stuck read is waiting on without knowing which class it is holding.
+
+| class        | `source`           |
+| ------------ | ------------------ |
+| `LocalFile`  | the path it reads  |
+| `RemoteFile` | the URL it fetches |
+| `BlobFile`   | `undefined`        |
+
+`BlobFile` returning nothing is the point rather than a gap. Its bytes were
+handed to the page and there is no address anyone could go and look at, so a
+caller that wants to name a file gets a straight answer either way instead of an
+invented one.
+
+It is verbatim what the handle was constructed with: a relative URL stays
+relative, and a presigned URL keeps the `?X-Amz-Signature=...` that is a
+credential. Resolving it, or redacting it before it goes anywhere a person can
+read it, belongs to the caller doing the showing.
 
 ## Options
 
