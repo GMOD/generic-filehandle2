@@ -12,8 +12,9 @@ pnpm build
 pnpm version patch  # or minor/major
 ```
 
-That runs lint, format, types, tests and build, regenerates CHANGELOG.md with
-git-cliff, then pushes the tag, which triggers the publish workflow.
+`pnpm version patch` runs lint, format, types, tests and build, regenerates
+CHANGELOG.md with git-cliff, then pushes the tag, which triggers the publish
+workflow.
 
 ## Publishing
 

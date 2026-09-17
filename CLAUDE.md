@@ -10,11 +10,18 @@ several of the obvious simplifications there are ruled out by a measurement.
 
 ## Package exports
 
-The `browser` export condition in `package.json` is intentional and
-load-bearing: it points at a build that stubs out `LocalFile`, the only class
-importing `fs/promises`. Do not remove it or flatten it away — without it any
-Vite browser build fails with
-`"open" is not exported by "__vite-browser-external"`, and nothing in
-`pnpm test` will notice, only `pnpm test:pack`.
-[docs/local-files.md](docs/local-files.md#in-a-browser-build-the-class-becomes-a-stub)
-has the details, including why jbrowse-desktop bypasses the whole mechanism.
+The `browser` export condition in `package.json` is intentional and required. It
+points to `esm/browser.js` / `dist/browser.js`, which stubs out `LocalFile` (the
+only class that imports from Node.js `fs/promises`). Vite, webpack, and Rollup
+use this condition when building for the browser.
+
+Do not remove it or flatten it away — without it, any Vite browser build will
+fail with:
+
+```
+"open" is not exported by "__vite-browser-external"
+```
+
+The jbrowse-desktop Electron app bypasses this entirely via a hardcoded webpack
+alias to `dist/index.js`, so it always gets the full Node.js build regardless of
+export conditions.
