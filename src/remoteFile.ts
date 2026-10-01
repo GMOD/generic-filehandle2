@@ -33,6 +33,15 @@ function mergeHeaders(...sources: (Record<string, string> | undefined)[]) {
   return Object.fromEntries(merged.values())
 }
 
+// under node, a body nobody reads holds its connection until it is collected.
+// A custom fetch may return a Response-like whose body has no cancel().
+function discardBody(res: Response) {
+  const body = res.body as Partial<ReadableStream> | null
+  if (typeof body?.cancel === 'function') {
+    body.cancel().catch(() => undefined)
+  }
+}
+
 function isByteOffset(n: number) {
   return Number.isSafeInteger(n) && n >= 0
 }
@@ -105,9 +114,6 @@ export default class RemoteFile implements GenericFilehandle {
     input: RequestInfo,
     init?: RequestInit,
   ): Promise<Response> {
-    // Only a network failure gains the URL. An abort reason, or an error the
-    // fetch implementation threw on purpose, reaches the caller as thrown, so a
-    // check on its name or identity still holds.
     const wrapError = (e: unknown) =>
       isNetworkFailure(e) && !init?.signal?.aborted
         ? new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
@@ -191,6 +197,7 @@ export default class RemoteFile implements GenericFilehandle {
     // returns instead of needing a separate size oracle (stat) to stay clear of
     // the end of the file.
     if (res.status === 416) {
+      discardBody(res)
       return new Uint8Array(0)
     }
 
@@ -218,6 +225,7 @@ export default class RemoteFile implements GenericFilehandle {
       return resData.byteLength <= length ? resData : resData.slice(0, length)
     }
 
+    discardBody(res)
     throw new Error(
       res.status === 200
         ? `${this.url} fetch returned status 200, expected 206`
@@ -227,8 +235,7 @@ export default class RemoteFile implements GenericFilehandle {
 
   private checkOk(res: Response) {
     if (!res.ok) {
-      // under node an unread body holds its connection until it is collected
-      res.body?.cancel().catch(() => undefined)
+      discardBody(res)
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
   }

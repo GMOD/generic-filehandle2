@@ -38,9 +38,9 @@ export interface FilehandleOptions {
 
 export interface Stats {
   size: number
-  /** Last modification time, where the source has one. `LocalFile` does. */
+  /** Set by `LocalFile` */
   mtimeMs?: number
-  /** Inode number, where the source has one. `LocalFile` does. */
+  /** Set by `LocalFile` */
   ino?: number
 }
 

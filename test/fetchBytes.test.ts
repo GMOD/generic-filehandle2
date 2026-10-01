@@ -175,17 +175,42 @@ test('a subclass sees a whole-file body start and end, and only for a response t
   expect(refused.events).toEqual([])
 })
 
-test('an error status lets go of the body it will not read', async () => {
+function unreadResponse(status: number, body: object) {
+  return vi.fn().mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(),
+    body,
+  })
+}
+
+test('a response whose body goes unread lets go of it', async () => {
   const cancel = vi.fn().mockResolvedValue(undefined)
+  const url = 'http://fakehost/test.txt'
+
+  const refused = new RemoteFile(url, {
+    fetch: unreadResponse(500, { cancel }),
+  })
+  await expect(refused.read(10, 0)).rejects.toThrow(/HTTP 500/)
+  await expect(refused.readFile()).rejects.toThrow(/HTTP 500/)
+
+  const pastEnd = new RemoteFile(url, {
+    fetch: unreadResponse(416, { cancel }),
+  })
+  expect(await pastEnd.read(10, 100)).toEqual(new Uint8Array(0))
+
+  // a server that ignores the range at an offset is sending the whole file
+  const unranged = new RemoteFile(url, {
+    fetch: unreadResponse(200, { cancel }),
+  })
+  await expect(unranged.read(10, 5)).rejects.toThrow(/expected 206/)
+
+  expect(cancel).toHaveBeenCalledTimes(4)
+})
+
+test('a body without cancel() does not mask the error status', async () => {
   const file = new RemoteFile('http://fakehost/test.txt', {
-    fetch: vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      headers: new Headers(),
-      body: { cancel },
-    }),
+    fetch: unreadResponse(500, {}),
   })
   await expect(file.read(10, 0)).rejects.toThrow(/HTTP 500/)
-  await expect(file.readFile()).rejects.toThrow(/HTTP 500/)
-  expect(cancel).toHaveBeenCalledTimes(2)
 })
