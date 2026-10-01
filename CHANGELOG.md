@@ -1,3 +1,18 @@
+## [2.5.0](https://github.com/GMOD/generic-filehandle2/compare/v2.4.0...v2.5.0) (2026-10-01)
+
+### Bug Fixes
+
+- Only a network failure gains the URL; aborts and custom fetch errors pass through ([6fc185d](https://github.com/GMOD/generic-filehandle2/commit/6fc185d58ed2b241be852b142f70a6a1ac4220d9))
+- Cancel every unread response body; a body without cancel() no longer masks the status ([6d5f72c](https://github.com/GMOD/generic-filehandle2/commit/6d5f72c56bfc660e98358c2ea079acf7acda38bd))
+
+### Documentation
+
+- Fix agency, contrastive framing, and cold-start openings in prose ([466981a](https://github.com/GMOD/generic-filehandle2/commit/466981ab881bfab956ac1c018b9694261581510a))
+
+### Features
+
+- ReadFileBody, the seam that brackets a whole-file body ([10ed12a](https://github.com/GMOD/generic-filehandle2/commit/10ed12a1e0f330eef1b2e1e2cea54306c363d720))
+
 ## [2.4.0](https://github.com/GMOD/generic-filehandle2/compare/v2.3.1...v2.4.0) (2026-08-23)
 
 ### Bug Fixes
