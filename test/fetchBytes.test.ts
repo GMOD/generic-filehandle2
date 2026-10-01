@@ -1,6 +1,11 @@
 import { expect, test, vi } from 'vitest'
 
-import { rangeMockFetch, toString } from './helpers.ts'
+import {
+  constantMockFetch,
+  rangeMockFetch,
+  toString,
+  wholeFileMockFetch,
+} from './helpers.ts'
 import { RemoteFile } from '../src/index.ts'
 
 import type { FilehandleOptions } from '../src/index.ts'
@@ -140,4 +145,47 @@ test('a subclass builds its request the way the base class would', async () => {
       headers: { Authorization: 'Basic abc', range: 'bytes=0-2' },
     }),
   )
+})
+
+class BodyWatchingFile extends RemoteFile {
+  public events: string[] = []
+  protected override async readFileBody(
+    ...args: Parameters<RemoteFile['readFileBody']>
+  ) {
+    this.events.push('body starts')
+    try {
+      return await super.readFileBody(...args)
+    } finally {
+      this.events.push('body ends')
+    }
+  }
+}
+
+test('a subclass sees a whole-file body start and end, and only for a response that has one', async () => {
+  const file = new BodyWatchingFile('http://fakehost/test.txt', {
+    fetch: wholeFileMockFetch(),
+  })
+  expect(await file.readFile('utf8')).toEqual('testing\n')
+  expect(file.events).toEqual(['body starts', 'body ends'])
+
+  const refused = new BodyWatchingFile('http://fakehost/test.txt', {
+    fetch: constantMockFetch('', 404),
+  })
+  await expect(refused.readFile()).rejects.toThrow(/HTTP 404/)
+  expect(refused.events).toEqual([])
+})
+
+test('an error status lets go of the body it will not read', async () => {
+  const cancel = vi.fn().mockResolvedValue(undefined)
+  const file = new RemoteFile('http://fakehost/test.txt', {
+    fetch: vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      body: { cancel },
+    }),
+  })
+  await expect(file.read(10, 0)).rejects.toThrow(/HTTP 500/)
+  await expect(file.readFile()).rejects.toThrow(/HTTP 500/)
+  expect(cancel).toHaveBeenCalledTimes(2)
 })

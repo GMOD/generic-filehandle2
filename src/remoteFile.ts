@@ -11,6 +11,7 @@ import type {
   Fetcher,
   FilehandleOptions,
   GenericFilehandle,
+  ProgressCallback,
   ReadFileOptions,
   ReadFileTextOptions,
   Stats,
@@ -226,6 +227,8 @@ export default class RemoteFile implements GenericFilehandle {
 
   private checkOk(res: Response) {
     if (!res.ok) {
+      // under node an unread body holds its connection until it is collected
+      res.body?.cancel().catch(() => undefined)
       throw new Error(`HTTP ${res.status} fetching ${this.url}`)
     }
   }
@@ -240,7 +243,7 @@ export default class RemoteFile implements GenericFilehandle {
     const { encoding, opts } = splitReadFileOptions(options)
     const res = await this.fetch(this.url, this.buildRequest(opts))
     this.checkOk(res)
-    const body = await readBody(res, encoding, opts.onProgress)
+    const body = await this.readFileBody(res, encoding, opts.onProgress)
     // a 200 means we hold the entire file, so its length is the file size —
     // record it so a subsequent stat() doesn't need another request. a 206
     // (caller supplied their own range header) tells us nothing.
@@ -248,6 +251,19 @@ export default class RemoteFile implements GenericFilehandle {
       this._stat = { size: body.byteLength }
     }
     return body
+  }
+
+  /**
+   * Reads the body of a whole-file response. A subclass overrides it to learn
+   * when that body starts and ends, which `fetch` cannot tell it: `fetch`
+   * returns at the headers.
+   */
+  protected readFileBody(
+    res: Response,
+    encoding: BufferEncoding | undefined,
+    onProgress?: ProgressCallback,
+  ) {
+    return readBody(res, encoding, onProgress)
   }
 
   public async stat(): Promise<Stats> {

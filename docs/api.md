@@ -176,10 +176,13 @@ the seam, so every subclass gets both for free. A subclass that still makes the
 request itself builds its `RequestInit` with
 `protected buildRequest(opts, extraHeaders?)`, which merges the constructor's
 headers, overrides and signal with the per-call ones exactly as the base class
-does. Everything HTTP-specific lives inside the default `fetchBytes`, so a
-subclass that replaces it is opting out of HTTP, which it has already replaced
-anyway, rather than out of a correctness fix it needed. Note that `stat()` reads
-through `read()`, so it goes through an override too.
+does. `protected readFileBody(res, encoding, onProgress?)` is the matching seam
+on the whole-file side: `readFile()` calls it once the status has checked out,
+so an override brackets the body, which `fetch` cannot do because `fetch`
+returns at the headers. Everything HTTP-specific lives inside the default
+`fetchBytes`, so a subclass that replaces it is opting out of HTTP, which it has
+already replaced anyway, rather than out of a correctness fix it needed. Note
+that `stat()` reads through `read()`, so it goes through an override too.
 
 Supplying a `fetch` through the constructor is usually better than subclassing
 it, because it sits below the base implementation, so the Chrome CORS retry and
