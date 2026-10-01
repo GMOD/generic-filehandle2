@@ -19,20 +19,29 @@ import type {
 // header names are case-insensitive but object keys are not, so a caller's
 // `Range` and the `range` a ranged GET adds are two keys — and fetch folds them
 // into one comma-joined multi-range request, whose multipart/byteranges body we
-// would hand back as file bytes. Ours wins, however the caller spelled it.
-function mergeHeaders(
-  headers: Record<string, string>,
-  ours: Record<string, string> = {},
-) {
-  const names = new Set(Object.keys(ours).map(k => k.toLowerCase()))
-  const kept = Object.entries(headers).filter(
-    ([k]) => !names.has(k.toLowerCase()),
-  )
-  return { ...Object.fromEntries(kept), ...ours }
+// would hand back as file bytes. The same folding joins a constructor's
+// `Authorization` to a per-call `authorization`. A later source wins, however
+// either one spelled the name.
+function mergeHeaders(...sources: (Record<string, string> | undefined)[]) {
+  const merged = new Map<string, [string, string]>()
+  for (const source of sources) {
+    for (const [name, value] of Object.entries(source ?? {})) {
+      merged.set(name.toLowerCase(), [name, value])
+    }
+  }
+  return Object.fromEntries(merged.values())
 }
 
 function isByteOffset(n: number) {
   return Number.isSafeInteger(n) && n >= 0
+}
+
+// fetch reports a request that got no response as a bare TypeError naming no
+// URL. Matched by name, since a custom fetch can throw one from another realm.
+function isNetworkFailure(e: unknown) {
+  return (
+    typeof e === 'object' && e !== null && 'name' in e && e.name === 'TypeError'
+  )
 }
 
 function getMessage(e: unknown) {
@@ -70,7 +79,7 @@ export default class RemoteFile implements GenericFilehandle {
     this.fetchImplementation = opts.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
-  private buildRequest(
+  protected buildRequest(
     opts: FilehandleOptions,
     extraHeaders?: Record<string, string>,
   ): RequestInit {
@@ -86,10 +95,7 @@ export default class RemoteFile implements GenericFilehandle {
       mode: 'cors',
       ...this.baseOverrides,
       ...opts.overrides,
-      headers: mergeHeaders(
-        { ...this.baseHeaders, ...opts.headers },
-        extraHeaders,
-      ),
+      headers: mergeHeaders(this.baseHeaders, opts.headers, extraHeaders),
       ...(signal ? { signal } : {}),
     }
   }
@@ -98,8 +104,13 @@ export default class RemoteFile implements GenericFilehandle {
     input: RequestInfo,
     init?: RequestInit,
   ): Promise<Response> {
+    // Only a network failure gains the URL. An abort reason, or an error the
+    // fetch implementation threw on purpose, reaches the caller as thrown, so a
+    // check on its name or identity still holds.
     const wrapError = (e: unknown) =>
-      new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
+      isNetworkFailure(e) && !init?.signal?.aborted
+        ? new Error(`${getMessage(e)} fetching ${input}`, { cause: e })
+        : e
 
     let response: Response
     try {
@@ -133,9 +144,6 @@ export default class RemoteFile implements GenericFilehandle {
     position: number,
     opts: FilehandleOptions = {},
   ): Promise<Uint8Array<ArrayBuffer>> {
-    if (length === 0) {
-      return new Uint8Array(0)
-    }
     // NaN is the one that motivated this — a corrupt index yields it from
     // ordinary arithmetic — but a fractional or negative byte offset is just as
     // unsendable, and reaches the server as a range header it can only reject
@@ -144,7 +152,9 @@ export default class RemoteFile implements GenericFilehandle {
         `read() called with an invalid length or position (length=${length}, position=${position}). The index file may be corrupt.`,
       )
     }
-    return this.fetchBytes(length, position, opts)
+    return length === 0
+      ? new Uint8Array(0)
+      : this.fetchBytes(length, position, opts)
   }
 
   /**

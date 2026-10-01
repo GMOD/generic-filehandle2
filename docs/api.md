@@ -65,9 +65,11 @@ await file.readFile({ encoding: 'utf8', signal })
 
 ## `stat()`
 
-Resolves to `{ size: number }`. `LocalFile` calls node's `stat` and `BlobFile`
-reads `blob.size`. `RemoteFile` has no way to ask directly, so it learns the
-size as a side effect of reading, as described in
+Resolves to `{ size: number }`. `LocalFile` calls node's `stat`, so its answer
+also carries `mtimeMs` and `ino`, which a cache in front of the file needs to
+tell a rewritten file from the one it read. `BlobFile` reads `blob.size`.
+`RemoteFile` has no way to ask directly, so it learns the size as a side effect
+of reading, as described in
 [optimizations.md](optimizations.md#stat-costs-at-most-one-small-read). When
 CORS hides the `Content-Range` header it resolves to `{ size: 0 }` rather than
 throwing, so a caller that only wants to display a size degrades instead of
@@ -170,11 +172,14 @@ class CachingFile extends RemoteFile {
 ```
 
 `read()` validates its arguments and handles a zero-length read before reaching
-the seam, so every subclass gets both for free. Everything HTTP-specific lives
-inside the default `fetchBytes`, so a subclass that replaces it is opting out of
-HTTP, which it has already replaced anyway, rather than out of a correctness fix
-it needed. Note that `stat()` reads through `read()`, so it goes through an
-override too.
+the seam, so every subclass gets both for free. A subclass that still makes the
+request itself builds its `RequestInit` with
+`protected buildRequest(opts, extraHeaders?)`, which merges the constructor's
+headers, overrides and signal with the per-call ones exactly as the base class
+does. Everything HTTP-specific lives inside the default `fetchBytes`, so a
+subclass that replaces it is opting out of HTTP, which it has already replaced
+anyway, rather than out of a correctness fix it needed. Note that `stat()` reads
+through `read()`, so it goes through an override too.
 
 Supplying a `fetch` through the constructor is usually better than subclassing
 it, because it sits below the base implementation, so the Chrome CORS retry and

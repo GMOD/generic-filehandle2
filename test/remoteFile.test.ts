@@ -86,6 +86,20 @@ test("a caller's own Range header does not double up with ours", async () => {
   expect(headers.Authorization).toEqual('Basic abc')
 })
 
+test('a per-call header replaces the constructor header it respells', async () => {
+  const { fetch, inits } = capturingMockFetch(() => createResponse('tes', 206))
+  const f = new RemoteFile('http://fakehost/test.txt', {
+    fetch,
+    headers: { Authorization: 'Bearer old' },
+  })
+  await f.read(3, 0, { headers: { authorization: 'Bearer new' } })
+  // left as two keys, fetch joins them into "Bearer old, Bearer new"
+  expect(inits[0]?.headers).toEqual({
+    authorization: 'Bearer new',
+    range: 'bytes=0-2',
+  })
+})
+
 test('throws error', async () => {
   mockFetch = constantMockFetch('', 500)
   const f = new RemoteFile('http://fakehost/test.txt', { fetch: mockFetch })
@@ -107,6 +121,8 @@ test('throws on NaN length or position', async () => {
   // a fractional or negative offset is equally unsendable as a range header
   await expect(f.read(1.5, 0)).rejects.toThrow(/invalid length or position/)
   await expect(f.read(10, -1)).rejects.toThrow(/invalid length or position/)
+  // a zero length does not excuse the position
+  await expect(f.read(0, -1)).rejects.toThrow(/invalid length or position/)
 })
 
 test('zero read', async () => {

@@ -86,8 +86,16 @@ the cause is often
 [a CORS response that Chrome cached](https://github.com/GMOD/jbrowse-components/pull/1511)
 rather than an actual network failure. Such a request is retried once with
 `cache: 'reload'`, and a warning is logged so the retry is visible rather than
-mysterious. Any other failure is wrapped with the URL it came from and rethrown,
-with the original error kept as `cause`.
+mysterious.
+
+### Only a network failure is rewrapped
+
+A request that gets no response rejects with a bare `TypeError` that names no
+URL, so that one failure is rethrown as `<message> fetching <url>` with the
+original kept as `cause`. Everything else reaches the caller as thrown: an abort
+arrives as the signal's own reason, and an error a custom `fetch` throws on
+purpose keeps its class and name. Wrapping those too broke every caller that
+recognized one by name, since the name of the wrapper is `Error`.
 
 ## Memory and copies
 

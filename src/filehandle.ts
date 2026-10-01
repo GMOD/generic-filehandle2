@@ -38,6 +38,10 @@ export interface FilehandleOptions {
 
 export interface Stats {
   size: number
+  /** Last modification time, where the source has one. `LocalFile` does. */
+  mtimeMs?: number
+  /** Inode number, where the source has one. `LocalFile` does. */
+  ino?: number
 }
 
 /** `readFile()` arguments for the byte-returning call. */

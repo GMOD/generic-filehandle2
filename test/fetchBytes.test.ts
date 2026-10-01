@@ -107,3 +107,37 @@ test('stat() still works over an overridden fetchBytes', async () => {
   const file = new SizedFile('http://fakehost/x', CONTENTS)
   expect((await file.stat()).size).toEqual(26)
 })
+
+/** A subclass that makes the ranged request itself, the way a cache's miss does. */
+class OwnRequestFile extends RemoteFile {
+  protected override async fetchBytes(
+    length: number,
+    position: number,
+    opts: FilehandleOptions,
+  ) {
+    const res = await this.fetch(
+      this.url,
+      this.buildRequest(opts, {
+        range: `bytes=${position}-${position + length - 1}`,
+      }),
+    )
+    return new Uint8Array(await res.arrayBuffer())
+  }
+}
+
+test('a subclass builds its request the way the base class would', async () => {
+  const fetch = rangeMockFetch()
+  const file = new OwnRequestFile('http://fakehost/test.txt', {
+    fetch,
+    headers: { Authorization: 'Basic abc' },
+    overrides: { credentials: 'include' },
+  })
+  expect(toString(await file.read(3, 0))).toEqual('tes')
+  expect(fetch).toHaveBeenCalledWith(
+    'http://fakehost/test.txt',
+    expect.objectContaining({
+      credentials: 'include',
+      headers: { Authorization: 'Basic abc', range: 'bytes=0-2' },
+    }),
+  )
+})

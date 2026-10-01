@@ -27,3 +27,8 @@ test('get stat', async () => {
   const ret = await testLocalFile().stat()
   expect(ret.size).toEqual(8)
 })
+test('stat says when the file last changed and which file it is', async () => {
+  const { mtimeMs, ino } = await testLocalFile().stat()
+  expect(mtimeMs).toBeGreaterThan(0)
+  expect(ino).toBeGreaterThan(0)
+})
