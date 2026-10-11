@@ -1,3 +1,9 @@
+## [2.5.1](https://github.com/GMOD/generic-filehandle2/compare/v2.5.0...v2.5.1) (2026-10-11)
+
+### Tests
+
+- Fail when docs/api.md misses a public member or export ([b1182a8](https://github.com/GMOD/generic-filehandle2/commit/b1182a8ef88c0940e6b5b7973fea473ea29fae44))
+
 ## [2.5.0](https://github.com/GMOD/generic-filehandle2/compare/v2.4.0...v2.5.0) (2026-10-01)
 
 ### Bug Fixes
