@@ -195,4 +195,9 @@ the error wrapping still apply to whatever it returns.
 typecheck a call to `readFile`. `ReadFileOptions` is `FilehandleOptions` without
 `encoding`, which is the overload returning bytes, and `ReadFileTextOptions` is
 either an encoding string or an options object carrying one, which is the
-overload returning a string.
+overload returning a string. `LocalFileOptions` types the second argument of the
+`LocalFile` constructor, which holds `cacheFd` and `fdIdleTimeoutMs`.
+
+`stat()` resolves to a `Stats`, which declares `size` and the optional `mtimeMs`
+and `ino` that only `LocalFile` sets. `Fetcher` types the `fetch` option, with
+the signature of `globalThis.fetch`, and `ProgressCallback` types `onProgress`.

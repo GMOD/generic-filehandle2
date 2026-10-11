@@ -16,6 +16,12 @@ pnpm version patch  # or minor/major
 CHANGELOG.md with git-cliff, then pushes the tag, which triggers the publish
 workflow.
 
+[docs/api.md](docs/api.md) is written by hand, and `test/apiDocs.test.ts` fails
+when a public member of `GenericFilehandle`, `LocalFile`, `RemoteFile`,
+`BlobFile`, their options types, or an export, is missing from it. Document the
+new member, or add it to the test's `undocumented` list with the reason it is
+internal.
+
 ## Publishing
 
 Releases publish automatically via GitHub Actions using npm trusted publishing
