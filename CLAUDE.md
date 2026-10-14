@@ -5,7 +5,7 @@ documents the interface, [optimizations.md](docs/optimizations.md) explains the
 design of the read path, and [local-files.md](docs/local-files.md) covers how
 `LocalFile` manages its file descriptor and how browser builds replace it with a
 stub. Read whichever is relevant before proposing a change to the read path,
-because a measurement rules out several of the obvious simplifications there.
+because measurements rule out several of the obvious simplifications there.
 
 ## Package exports
 
