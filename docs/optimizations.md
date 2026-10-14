@@ -14,7 +14,7 @@ which gives the largest single speedup in the package.
 ## Reads
 
 A read of zero bytes returns an empty array immediately. For `RemoteFile` that
-avoids a pointless request. For `BlobFile` it prevents a crash, because some
+avoids a pointless request, and for `BlobFile` it prevents a crash, because some
 browsers crash when asked to read zero bytes from a local file. Indexed readers
 produce these reads from empty chunks more often than you might expect.
 
@@ -55,12 +55,12 @@ and CORS often hides its answer besides. `stat()` therefore issues a 10-byte
 ranged read instead and takes the total from the `Content-Range` header, which
 comes back in the form `bytes 0-9/1234`.
 
-Ordinary reads record the size as well. On any 206 response, and any 200
-response to a read at position 0, `RemoteFile` records the size, so `stat()`
-makes no request for a reader that has already read anything. `readFile()`
-records the size too, but only from a 200 response, since a 206 there means the
-caller supplied a range header of their own, and the length of that body is
-unrelated to the length of the file.
+`RemoteFile` also records the size from ordinary reads, on any 206 response and
+any 200 response to a read at position 0, so `stat()` makes no request for a
+reader that has already read anything. `readFile()` records the size too, but
+only from a 200 response, since a 206 there means the caller supplied a range
+header of their own, and the length of that body is unrelated to the length of
+the file.
 
 Several readers often call `stat()` at once, since it is usually the first thing
 each of them does, so `RemoteFile` sends one request and every caller awaits it.

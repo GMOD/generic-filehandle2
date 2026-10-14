@@ -168,10 +168,9 @@ every call put in its place.
 }
 ```
 
-The order of those keys matters. `browser` comes first so that a bundler which
-supports the condition takes it, while node, which does not implement that
-condition at all, falls through to `import` or `require` and gets the real
-class.
+`browser` comes first among those keys so that a bundler which supports the
+condition takes it, while node, which does not implement that condition at all,
+falls through to `import` or `require` and gets the real class.
 
 The stub is a typed class, not `undefined` or a class whose methods take `any`.
 Every member has the full signature of the real one, including both `readFile`
