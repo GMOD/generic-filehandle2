@@ -7,16 +7,17 @@ returns, and we made each one after a consumer ran into the problem it fixes.
 
 The consumers are indexed readers, and the package is tuned for how they read:
 many small positional reads, issued concurrently, against a file whose size is
-unknown until something asks for it. [api.md](api.md) documents the interface
+not known until something asks for it. [api.md](api.md) documents the interface
 itself, and [local-files.md](local-files.md) covers the file descriptor policy,
-which gives the largest single speedup in the package.
+which is the largest single win in the package.
 
 ## Reads
 
 A read of zero bytes returns an empty array immediately. For `RemoteFile` that
-avoids a pointless request, and for `BlobFile` it prevents a crash, because some
-browsers crash when asked to read zero bytes from a local file. Indexed readers
-produce these reads from empty chunks more often than you might expect.
+avoids a pointless request, and for `BlobFile` it is a correctness fix rather
+than an optimization, because some browsers crash when asked to read zero bytes
+from a local file. Indexed readers produce these reads from empty chunks more
+often than you might expect.
 
 Reading past the end of a file returns however many bytes were left rather than
 throwing, and `RemoteFile` keeps that true over HTTP by translating a 416 Range
@@ -31,7 +32,7 @@ A corrupt index produces `NaN` through ordinary arithmetic. Without the check,
 the `NaN` would reach the server as a range header the server can only reject,
 and the error would appear a long way from the actual bug.
 
-### Copying the slice when a server ignores the range
+### A server that sends too much does not keep its body alive
 
 A server that ignores the range header sends the whole file back. If the read
 returned a `subarray` view of the first `length` bytes of that response, the
@@ -67,7 +68,7 @@ each of them does, so `RemoteFile` sends one request and every caller awaits it.
 `RemoteFile` clears the shared promise once it settles, so a probe that fails
 does not stop later calls from trying again.
 
-### The library's range header replaces a caller's
+### A caller's `Range` header cannot end up alongside ours
 
 HTTP header names are case-insensitive, but JavaScript object keys are not. When
 a caller passes `{ Range: 'bytes=0-99' }` and a ranged read adds its own
@@ -117,7 +118,7 @@ itself.
 
 Progress is opt-in because streaming runs a reader loop. A caller that omits
 `onProgress` gets `Response.bytes()`, which is a single call into the platform.
-Most callers here are programs rather than people, and `@gmod/bam` reading an
+Most callers here are machines rather than people, and `@gmod/bam` reading an
 index should not pay for a reader loop whose output nothing will display.
 
 ### `Response.bytes()` and `instanceof Response`

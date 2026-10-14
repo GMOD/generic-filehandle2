@@ -1,4 +1,4 @@
-# The `LocalFile` descriptor and browser stub
+# LocalFile: the descriptor, and the browser stub
 
 `LocalFile` opens the file once and keeps that file descriptor open across
 reads, then closes it again once nothing has read from the file for 30 seconds.
@@ -23,10 +23,10 @@ file already in the page cache and interleaving the two approaches:
 | 138 µs                    | 65 µs                    | 2.1x  |
 | 47 µs                     | 25 µs                    | 1.9x  |
 
-The absolute numbers vary with the machine, the filesystem and the node version;
-the two rows above differ by about 3x running the same code. Take the ratio of
-roughly **1.9-2.1x**, and measure on your own hardware rather than quoting
-these. Every node consumer of this package gets the saving, including
+The absolute numbers vary with the machine, the filesystem and the node version
+— the two rows above differ by about 3x while running the same code — so take
+the ratio of roughly **1.9-2.1x** and measure on your own hardware rather than
+quoting these. Every node consumer of this package gets the saving, including
 command-line tools, indexing jobs, and the test suite of every sibling
 repository. With `cacheFd: false`, `LocalFile` opens the file on every read,
 exactly as the original implementation did.
@@ -61,8 +61,8 @@ obvious next step, and it is wrong for two reasons, neither about speed.
 
 First, consumers do not close filehandles. JBrowse opens one per track file and
 never calls `close()` on any of them, which is understandable, because the
-interface looks like a value rather than a resource to release. The default
-therefore has to be safe for a caller who never cleans up.
+interface reads like a value rather than a resource you are meant to release.
+Whatever the default is, it has to be safe for a caller who never cleans up.
 
 Second, a descriptor that is never closed uses up a limited resource. The
 operating system caps open descriptors per process, so holding one per file
@@ -71,11 +71,11 @@ deprecated closing a `FileHandle` by garbage collection (DEP0137) and intends to
 make it an error, so a descriptor that only the garbage collector ever closes
 would become a crash in a future node version.
 
-The idle timeout limits how long `LocalFile` keeps a descriptor without relying
-on the caller to call `close()`. The timer restarts after every successful read,
-so it measures the time since the last read, not since the file was opened.
-Reads within a single query arrive milliseconds apart and never trigger it,
-while `LocalFile` closes the descriptor of a file that nothing has read for 30
+The idle timeout bounds how long `LocalFile` keeps a descriptor by time rather
+than by trusting the caller. The timer restarts after every successful read, so
+it measures the time since the last read, not since the file was opened. Reads
+within a single query arrive milliseconds apart and never trigger it, while
+`LocalFile` closes the descriptor of a file that nothing has read for 30
 seconds. A query's reads therefore keep the speedup, and a caller who never
 calls `close()` is still safe. Opening per read loses the speedup, and holding
 the descriptor forever leaks it.
@@ -90,7 +90,7 @@ new LocalFile(path, { cacheFd: false }) // open and close on every read
 `LocalFile` calls `unref()` on the timer, so a pending close does not by itself
 keep a node process alive.
 
-### Timers without `unref`
+### `unref` is not available everywhere
 
 `setTimeout` returns a `Timeout` object under node, but in a DOM context it
 returns an opaque number, and a number has no `unref` method. Calling it there
@@ -128,22 +128,22 @@ promise once it settles, whether it resolved or rejected, so a failed open does
 not leave the object broken.
 
 `close()` closes the descriptor and returns. A later read opens the file again,
-so a consumer that closes too early loses a little speed and nothing else.
+so a consumer that closes too eagerly loses a little speed and nothing else.
 
 A `close()` that arrives while an `open()` is still in flight needs care.
 Dropping the reference is not enough, because the open would then settle and
-store its descriptor in an object nobody calls again, leaving the descriptor
-open for the life of the process. `close()` therefore waits for the pending open
-to settle and closes whatever it produced. `close()` ignores errors from closing
-the descriptor, because an `EBADF` from a network filesystem means the
-descriptor is already gone, and `LocalFile` discards it either way.
+install its descriptor into an object nobody is going to call again, leaving the
+descriptor open for the life of the process. `close()` therefore waits for the
+pending open to settle and closes whatever it produced. `close()` ignores errors
+from closing the descriptor, because an `EBADF` from a network filesystem means
+the descriptor is already gone, and `LocalFile` discards it either way.
 
-`LocalFile` does not limit the number of open descriptors across instances, so a
+`LocalFile` does not bound the number of open descriptors across instances, so a
 thousand files being read at the same time hold a thousand descriptors between
 them; lower `fdIdleTimeoutMs` or set `cacheFd: false` if that is your situation.
-`readFile()` and `stat()` use the path rather than the open descriptor, which
-costs one path resolution on a call that either reads the whole file or none of
-it.
+`readFile()` and `stat()` work from the path rather than the open descriptor,
+which costs one path resolution on a call that either reads the whole file or
+none of it.
 
 ## In a browser build, the class becomes a stub
 
@@ -179,8 +179,8 @@ no longer matches the interface fails to compile here instead of breaking inside
 somebody else's bundle. The stub exists so that code written against
 `LocalFile`, such as a JBrowse adapter that picks a filehandle by URI scheme,
 still typechecks in a bundle that resolves the `browser` condition, even though
-calling it would fail at runtime. For the same reason, the constructor accepts
-its parameters and ignores them. The error therefore comes only when the bundle
+calling it would fail at runtime. For the same reason, the constructor takes its
+parameters and ignores them. The error therefore comes only when the bundle
 tries to read a local file, and it names the path the constructor was given
 (`LocalFile is unimplemented in the browser (/path/to/file)`).
 

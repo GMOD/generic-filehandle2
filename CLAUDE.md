@@ -1,11 +1,12 @@
 # generic-filehandle2
 
 The `docs/` folder records the reasoning behind the code. [api.md](docs/api.md)
-documents the interface, [optimizations.md](docs/optimizations.md) explains the
-design of the read path, and [local-files.md](docs/local-files.md) covers how
-`LocalFile` manages its file descriptor and how browser builds replace it with a
-stub. Read whichever is relevant before proposing a change to the read path,
-because measurements rule out several of the obvious simplifications there.
+documents the interface, [optimizations.md](docs/optimizations.md) explains why
+the read path looks the way it does, and [local-files.md](docs/local-files.md)
+covers how `LocalFile` manages its file descriptor and how browser builds
+replace it with a stub. Read whichever is relevant before proposing a change to
+the read path, because measurements rule out several of the obvious
+simplifications there.
 
 ## Package exports
 
@@ -14,8 +15,8 @@ points to `esm/browser.js` / `dist/browser.js`, which stubs out `LocalFile` (the
 only class that imports from Node.js `fs/promises`). Vite, webpack, and Rollup
 use this condition when building for the browser.
 
-Keep the condition; don't remove it or flatten it away. Without it, any Vite
-browser build fails with:
+Do not remove it or flatten it away — without it, any Vite browser build will
+fail with:
 
 ```
 "open" is not exported by "__vite-browser-external"

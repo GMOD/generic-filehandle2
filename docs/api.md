@@ -71,15 +71,15 @@ tell a rewritten file from the one it read. `BlobFile` reads `blob.size`.
 `RemoteFile` has no direct request for the size, so it records the size from the
 responses to its reads, as described in
 [optimizations.md](optimizations.md#stat-costs-at-most-one-small-read). When
-CORS hides the `Content-Range` header, `stat()` resolves to `{ size: 0 }`
-instead of throwing, so a caller that only wants to display a size still gets a
+CORS hides the `Content-Range` header, `stat()` resolves to `{ size: 0 }` rather
+than throwing, so a caller that only wants to display a size still gets a
 result.
 
 ## `close()`
 
-Releases whatever the handle holds, which in practice is the file descriptor
-that `LocalFile` keeps open. The handle stays usable afterwards, because a later
-read opens the file again, and a second `close()` is harmless.
+Releases whatever the handle is holding on to, which in practice means the file
+descriptor that `LocalFile` keeps open. The handle stays usable afterwards,
+because a later read opens the file again, and a second `close()` is harmless.
 [local-files.md](local-files.md) describes the descriptor's lifecycle, including
 the idle timeout that closes the descriptor for you.
 
