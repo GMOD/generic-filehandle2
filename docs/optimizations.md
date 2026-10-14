@@ -22,10 +22,9 @@ often than you might expect.
 Reading past the end of a file returns however many bytes were left rather than
 throwing, and `RemoteFile` keeps that true over HTTP by translating a 416 Range
 Not Satisfiable response into an empty read. A caller can therefore read to the
-end of a file without ever learning its size. Otherwise the caller would have to
-call `stat()` before every speculative read, which over the network means
-another round trip. That round trip is why indexed readers deliberately read
-past a block boundary instead of asking how long the file is.
+end of a file without ever learning its size, which over the network would cost
+a `stat()` round trip. Indexed readers rely on this to read past a block
+boundary.
 
 `RemoteFile` rejects a length or position that is negative, fractional or `NaN`.
 A corrupt index produces `NaN` through ordinary arithmetic. Without the check,

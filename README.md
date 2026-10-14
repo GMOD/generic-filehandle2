@@ -36,26 +36,19 @@ await file.stat() // the file size, as { size }
 await file.close() // close the file descriptor, if one is open
 ```
 
-The options they take, the behavior they share, and the seam for extending
-`RemoteFile` are all covered in [docs/api.md](docs/api.md).
+[docs/api.md](docs/api.md) covers their options, shared behavior, and how to
+extend `RemoteFile`.
 
-`LocalFile` takes two more options in its constructor, `cacheFd` and
-`fdIdleTimeoutMs`, which control how it manages its file descriptor.
-[docs/local-files.md](docs/local-files.md) explains what they do and why they
-default the way they do.
+`LocalFile`'s constructor also takes `cacheFd` and `fdIdleTimeoutMs`, which
+control its file descriptor; see [docs/local-files.md](docs/local-files.md).
 
 ## Docs
 
-- [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
-  is the byte-range cache to put underneath these handles when reading remote
-  files.
-- [docs/api.md](docs/api.md) documents every method, option and type, and how to
-  extend `RemoteFile`.
-- [docs/optimizations.md](docs/optimizations.md) explains why reads, requests
-  and buffers work the way they do, with the measurement behind each choice.
-- [docs/local-files.md](docs/local-files.md) covers the file descriptor that
-  `LocalFile` keeps open, and the stub that replaces the class in browser
-  builds.
+- [docs/api.md](docs/api.md): every method, option and type
+- [docs/optimizations.md](docs/optimizations.md): why reads, requests and
+  buffers work the way they do, with measurements
+- [docs/local-files.md](docs/local-files.md): `LocalFile`'s open descriptor, and
+  its browser stub
 
 ## See also
 

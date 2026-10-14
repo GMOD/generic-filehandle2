@@ -2,10 +2,8 @@
 
 `LocalFile` opens the file once and keeps that file descriptor open across
 reads, then closes it again once nothing has read from the file for 30 seconds.
-The first half of this document explains why each of those is the default. The
-second half covers the stub that replaces the class in a browser build. Both
-halves follow from `LocalFile` being the only class in the package that imports
-from node's `fs/promises`.
+This page explains both defaults, and the stub that replaces the class in a
+browser build.
 
 ## Why keep a descriptor open across reads
 
@@ -23,12 +21,9 @@ file already in the page cache and interleaving the two approaches:
 | 138 µs                    | 65 µs                    | 2.1x  |
 | 47 µs                     | 25 µs                    | 1.9x  |
 
-The absolute numbers vary with the machine, the filesystem and the node version
-— the two rows above differ by about 3x while running the same code — so take
-the ratio of roughly **1.9-2.1x** and measure on your own hardware rather than
-quoting these. Every node consumer of this package gets the saving, including
-command-line tools, indexing jobs, and the test suite of every sibling
-repository. With `cacheFd: false`, `LocalFile` opens the file on every read,
+The absolute numbers vary with machine, filesystem and node version (the two
+rows differ by about 3x running the same code), so quote the ratio of roughly
+**1.9-2.1x**. With `cacheFd: false`, `LocalFile` opens the file on every read,
 exactly as the original implementation did.
 
 ## Recovering from a stale descriptor
@@ -77,8 +72,7 @@ it measures the time since the last read, not since the file was opened. Reads
 within a single query arrive milliseconds apart and never trigger it, while
 `LocalFile` closes the descriptor of a file that nothing has read for 30
 seconds. A query's reads therefore keep the speedup, and a caller who never
-calls `close()` is still safe. Opening per read loses the speedup, and holding
-the descriptor forever leaks it.
+calls `close()` is still safe.
 
 ```js
 new LocalFile(path) // 30s idle timeout
@@ -111,11 +105,9 @@ the timer can hold a process open for `fdIdleTimeoutMs`, and a renderer has no
 process of its own to hold open. The test for the predicate replaces
 `globalThis.setTimeout` with the DOM signature and reads a file through it.
 
-The predicate is a type guard rather than a `typeof` check at the call site,
-because a `typeof` check leaves the member typed as a bare `Function`, which
-tells TypeScript nothing about its parameters or return type, so the
-`no-unsafe-call` lint rule rejects the call. Because the predicate declares the
-method's signature, TypeScript type-checks the call with no cast.
+The predicate is a type guard rather than a `typeof` check, because `typeof`
+leaves the member typed as a bare `Function`, which the `no-unsafe-call` lint
+rule rejects.
 
 ## Concurrent reads share one open, and closing is safe at any time
 
@@ -176,12 +168,10 @@ The stub is a typed class, not `undefined` or a class whose methods take `any`.
 Every member has the full signature of the real one, including both `readFile`
 overloads, and the class declares `implements GenericFilehandle`, so a stub that
 no longer matches the interface fails to compile here instead of breaking inside
-somebody else's bundle. The stub exists so that code written against
-`LocalFile`, such as a JBrowse adapter that picks a filehandle by URI scheme,
-still typechecks in a bundle that resolves the `browser` condition, even though
-calling it would fail at runtime. For the same reason, the constructor takes its
-parameters and ignores them. The error therefore comes only when the bundle
-tries to read a local file, and it names the path the constructor was given
+somebody else's bundle. Code written against `LocalFile`, such as a JBrowse
+adapter that picks a filehandle by URI scheme, therefore still typechecks in a
+browser bundle. The constructor accepts its parameters, and any read rejects
+with an error naming the path
 (`LocalFile is unimplemented in the browser (/path/to/file)`).
 
 JBrowse Desktop bypasses the `browser` condition with a hardcoded webpack alias

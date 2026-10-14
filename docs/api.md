@@ -48,9 +48,8 @@ worker and decode it with `TextDecoder`.
 ## `readFile(options?)`
 
 Reads the whole file, resolving to a `Uint8Array<ArrayBuffer>`, or to a `string`
-when an encoding is given. The two overloads make that a compile-time
-distinction, so the caller does not have to narrow a `Uint8Array | string` union
-afterwards.
+when an encoding is given, with an overload for each so the return type is
+exact.
 
 Every implementation accepts both `utf8` and `utf-8`. `LocalFile` passes the
 option through to node's own `readFile` and therefore takes any encoding node
@@ -94,9 +93,8 @@ file a slow or stuck read is waiting on without knowing the handle's class.
 | `RemoteFile` | the URL it fetches |
 | `BlobFile`   | `undefined`        |
 
-`BlobFile` leaves `source` undefined on purpose, because the page handed it
-bytes that have no address anyone could look up. A caller that labels a read by
-its file therefore gets a real path or URL, or nothing.
+`BlobFile` leaves `source` undefined on purpose, because its bytes have no
+address anyone could look up.
 
 `source` is the string the handle was constructed with, unchanged. A relative
 URL stays relative, and a presigned URL keeps the `?X-Amz-Signature=...` that is
@@ -122,11 +120,9 @@ to `RemoteFile` only.
 A read from node's `fs` or from a `Blob` cannot be cancelled once started, so
 `LocalFile` and `BlobFile` check the signal before and after the read. The read
 runs to completion, and the promise then rejects as it would in `RemoteFile`, so
-the bytes never reach a caller that has given up. An abort therefore rejects the
-call in all three classes, although in `LocalFile` and `BlobFile` the disk or
-blob read still finishes. A signal passed to an individual call takes precedence
-over one given to the constructor, which in turn takes precedence over one
-passed through `overrides`.
+the bytes never reach a caller that has given up. A signal passed to an
+individual call takes precedence over one given to the constructor, which in
+turn takes precedence over one passed through `overrides`.
 
 ## Constructor options
 
@@ -181,10 +177,7 @@ for `readFile()`, which calls it after checking the response status. An override
 can therefore run code before and after the body is read, which an override of
 `fetch` cannot, because `fetch` returns as soon as the headers arrive.
 
-The default `fetchBytes` contains all the HTTP-specific code, so a subclass that
-replaces it drops only the HTTP handling, which it has replaced anyway, and
-keeps every correctness fix it needs. `stat()` calls `read()`, so an override of
-`fetchBytes` serves `stat()` too.
+`stat()` calls `read()`, so an override of `fetchBytes` serves `stat()` too.
 
 To change how requests are made, passing a `fetch` to the constructor is usually
 better than overriding the `fetch` method. The base `fetch` method calls the
