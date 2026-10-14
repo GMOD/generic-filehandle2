@@ -23,19 +23,19 @@ interface GenericFilehandle {
 }
 ```
 
-Consumers should accept the interface rather than any particular class, which is
-what lets `@gmod/bam`, `@gmod/tabix`, `@gmod/bbi` and the rest work without ever
-learning whether the bytes came from a disk, from a server, or from a file the
-user dragged into a browser tab.
+Consumers should accept the interface rather than any particular class.
+`@gmod/bam`, `@gmod/tabix`, `@gmod/bbi` and the rest do, so the same parser code
+reads bytes from a disk, from a server, or from a file the user dragged into a
+browser tab.
 
 ## `read(length, position, opts?)`
 
-Reads that many bytes starting at that byte offset. The result is typed
-`Uint8Array<ArrayBuffer>` rather than plain `Uint8Array`, which promises the
-buffer underneath is not a `SharedArrayBuffer`, so it can be transferred to a
-worker and decoded by `TextDecoder`.
+Reads that many bytes starting at that byte offset. The result type is
+`Uint8Array<ArrayBuffer>`, not plain `Uint8Array`, which rules out a
+`SharedArrayBuffer` underneath, so the caller can transfer the buffer to a
+worker and decode it with `TextDecoder`.
 
-All three implementations behave the same way at the edges:
+`LocalFile`, `RemoteFile` and `BlobFile` handle the edge cases the same way:
 
 - Reading past the end of the file returns whatever bytes were left, and reading
   entirely past it returns an empty array, rather than throwing.
@@ -52,9 +52,9 @@ when an encoding is given. The two overloads make that a compile-time
 distinction, so the caller does not have to narrow a `Uint8Array | string` union
 afterwards.
 
-Both spellings of utf8 are accepted everywhere. `LocalFile` passes the option
-through to node's own `readFile` and therefore takes any encoding node takes,
-while `RemoteFile` and `BlobFile` decode utf8 and throw
+Every implementation accepts both `utf8` and `utf-8`. `LocalFile` passes the
+option through to node's own `readFile` and therefore takes any encoding node
+takes, while `RemoteFile` and `BlobFile` decode utf8 and throw
 `unsupported encoding: <x>` for anything else. Every implementation accepts
 either a bare encoding string or an options object:
 
@@ -65,28 +65,28 @@ await file.readFile({ encoding: 'utf8', signal })
 
 ## `stat()`
 
-Resolves to `{ size: number }`. `LocalFile` calls node's `stat`, so its answer
-also carries `mtimeMs` and `ino`, which a cache in front of the file needs to
+Resolves to `{ size: number }`. `LocalFile` calls node's `stat`, so its result
+also contains `mtimeMs` and `ino`. A cache in front of the file needs those to
 tell a rewritten file from the one it read. `BlobFile` reads `blob.size`.
-`RemoteFile` has no way to ask directly, so it learns the size as a side effect
-of reading, as described in
+`RemoteFile` has no direct request for the size, so it records the size from the
+responses to its reads, as described in
 [optimizations.md](optimizations.md#stat-costs-at-most-one-small-read). When
-CORS hides the `Content-Range` header it resolves to `{ size: 0 }` rather than
-throwing, so a caller that only wants to display a size degrades instead of
-failing.
+CORS hides the `Content-Range` header, `stat()` resolves to `{ size: 0 }`
+instead of throwing, so a caller that only wants to display a size still gets a
+result.
 
 ## `close()`
 
-Releases whatever the handle is holding on to, which in practice means the file
-descriptor that `LocalFile` keeps open. It is a hint that the caller is finished
-rather than a teardown: reading afterwards simply opens the file again, and
-calling it twice is harmless. [local-files.md](local-files.md) describes that
-lifecycle, including the idle timeout that closes the descriptor for you.
+Releases whatever the handle holds, which in practice is the file descriptor
+that `LocalFile` keeps open. The handle stays usable afterwards, because a later
+read opens the file again, and a second `close()` is harmless.
+[local-files.md](local-files.md) describes the descriptor's lifecycle, including
+the idle timeout that closes the descriptor for you.
 
 ## `source`
 
-Where the handle's bytes come from, so a caller can say which file a slow or
-stuck read is waiting on without knowing which class it is holding.
+`source` is the path or URL the handle reads from, so a caller can report which
+file a slow or stuck read is waiting on without knowing the handle's class.
 
 | class        | `source`           |
 | ------------ | ------------------ |
@@ -94,15 +94,14 @@ stuck read is waiting on without knowing which class it is holding.
 | `RemoteFile` | the URL it fetches |
 | `BlobFile`   | `undefined`        |
 
-`BlobFile` returning nothing is the point rather than a gap. Its bytes were
-handed to the page and there is no address anyone could go and look at, so a
-caller that wants to name a file gets a straight answer either way instead of an
-invented one.
+`BlobFile` leaves `source` undefined on purpose, because the page handed it
+bytes that have no address anyone could look up. A caller that labels a read by
+its file therefore gets a real path or URL, or nothing.
 
-It is verbatim what the handle was constructed with: a relative URL stays
-relative, and a presigned URL keeps the `?X-Amz-Signature=...` that is a
-credential. Resolving it, or redacting it before it goes anywhere a person can
-read it, belongs to the caller doing the showing.
+`source` is the string the handle was constructed with, unchanged. A relative
+URL stays relative, and a presigned URL keeps the `?X-Amz-Signature=...` that is
+a credential. The caller that displays `source` is responsible for resolving it,
+or for redacting it before a person can read it.
 
 ## Options
 
@@ -119,15 +118,15 @@ to `RemoteFile` only.
 | `fetch`      | `(input, init?) => Promise<Response>`     | defaults to `globalThis.fetch`, and the response it returns need not be the platform's own class |
 | `onProgress` | `(bytesReceived: number, total?) => void` | opt-in, and switches the read to a streaming path that reports at most one tick every 50ms       |
 
-`RemoteFile` passes the signal to `fetch`, which genuinely cancels the request
-in flight. Neither node's `fs` nor a `Blob` read can be cancelled once started,
-so `LocalFile` and `BlobFile` instead check the signal on both sides of the
-read: the read runs to completion, but its bytes never reach a caller that has
-given up, and the promise rejects as any other implementation's would.
-Cancellation therefore behaves uniformly at the API, but it is not a promise
-that the underlying work stopped. A signal passed to an individual call takes
-precedence over one given to the constructor, which in turn takes precedence
-over one passed through `overrides`.
+`RemoteFile` passes the signal to `fetch`, which cancels the request in flight.
+A read from node's `fs` or from a `Blob` cannot be cancelled once started, so
+`LocalFile` and `BlobFile` check the signal before and after the read. The read
+runs to completion, and the promise then rejects as it would in `RemoteFile`, so
+the bytes never reach a caller that has given up. An abort therefore rejects the
+call in all three classes, although in `LocalFile` and `BlobFile` the disk or
+blob read still finishes. A signal passed to an individual call takes precedence
+over one given to the constructor, which in turn takes precedence over one
+passed through `overrides`.
 
 ## Constructor options
 
@@ -143,7 +142,7 @@ new BlobFile(blob)
 - `cacheFd`, default `true`, keeps one descriptor open across reads instead of
   opening and closing one for every read.
 - `fdIdleTimeoutMs`, default `30000`, closes that descriptor once nothing has
-  read from the file for that long. Setting it to `0` keeps it open until
+  read from the file for that long. With `0`, the descriptor stays open until
   `close()` is called.
 
 ## Extending `RemoteFile`
@@ -152,15 +151,14 @@ Override `protected fetchBytes(length, position, opts)` when you can produce the
 bytes yourself, and `public fetch(input, init?)` when you want the requests
 themselves made differently.
 
-The case that motivated the first is
+We added `fetchBytes` for
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle),
-which caches byte ranges underneath a parser. When `fetch` was the only thing a
+which caches byte ranges underneath a parser. When `fetch` was the only method a
 subclass could override, a subclass that already held the bytes had to wrap them
-in a `Response` that `read()` would immediately unwrap again. Measured on that
-class with its cache fully warm and no network involved, that round trip
-accounted for **69-77% of the entire read** — 0.36ms against 0.08ms for a 0.25MB
-read, and 6.15ms against 1.90ms for a 16MB one — which is essentially the whole
-cost of a cache hit.
+in a `Response` that `read()` would immediately unwrap again. On that class,
+with its cache fully warm and no network involved, the wrap and unwrap took
+**69-77% of the entire read**, nearly the whole cost of a cache hit: 0.36ms
+against 0.08ms for a 0.25MB read, and 6.15ms against 1.90ms for a 16MB one.
 
 ```js
 class CachingFile extends RemoteFile {
@@ -171,22 +169,27 @@ class CachingFile extends RemoteFile {
 }
 ```
 
-`read()` validates its arguments and handles a zero-length read before reaching
-the seam, so every subclass gets both for free. A subclass that still makes the
-request itself builds its `RequestInit` with
+`read()` validates its arguments and handles a zero-length read before it calls
+`fetchBytes`, so an override needs to do neither. A subclass that still makes
+the request itself builds its `RequestInit` with
 `protected buildRequest(opts, extraHeaders?)`, which merges the constructor's
 headers, overrides and signal with the per-call ones exactly as the base class
-does. `protected readFileBody(res, encoding, onProgress?)` is the matching seam
-on the whole-file side: `readFile()` calls it once the status has checked out,
-so an override brackets the body, which `fetch` cannot do because `fetch`
-returns at the headers. Everything HTTP-specific lives inside the default
-`fetchBytes`, so a subclass that replaces it is opting out of HTTP, which it has
-already replaced anyway, rather than out of a correctness fix it needed. Note
-that `stat()` reads through `read()`, so it goes through an override too.
+does.
 
-Supplying a `fetch` through the constructor is usually better than subclassing
-it, because it sits below the base implementation, so the Chrome CORS retry and
-the error wrapping still apply to whatever it returns.
+`protected readFileBody(res, encoding, onProgress?)` is the matching override
+for `readFile()`, which calls it after checking the response status. An override
+can therefore run code before and after the body is read, which an override of
+`fetch` cannot, because `fetch` returns as soon as the headers arrive.
+
+The default `fetchBytes` contains all the HTTP-specific code, so a subclass that
+replaces it drops only the HTTP handling, which it has replaced anyway, and
+keeps every correctness fix it needs. `stat()` calls `read()`, so an override of
+`fetchBytes` serves `stat()` too.
+
+To change how requests are made, passing a `fetch` to the constructor is usually
+better than overriding the `fetch` method. The base `fetch` method calls the
+constructor's `fetch`, so the Chrome CORS retry and the error wrapping still
+apply to whatever it returns.
 
 ## Types
 
@@ -194,8 +197,8 @@ the error wrapping still apply to whatever it returns.
 `@types/node`, so that consuming code does not need node's types installed to
 typecheck a call to `readFile`. `ReadFileOptions` is `FilehandleOptions` without
 `encoding`, which is the overload returning bytes, and `ReadFileTextOptions` is
-either an encoding string or an options object carrying one, which is the
-overload returning a string. `LocalFileOptions` types the second argument of the
+either an encoding string or an options object with one, which is the overload
+returning a string. `LocalFileOptions` types the second argument of the
 `LocalFile` constructor, which holds `cacheFd` and `fdIdleTimeoutMs`.
 
 `stat()` resolves to a `Stats`, which declares `size` and the optional `mtimeMs`

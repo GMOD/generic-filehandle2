@@ -22,8 +22,8 @@ const buf2 = await remote.readFile()
 If you are reading a remote file through an indexed parser, put
 [@gmod/range-cache-filehandle](https://github.com/GMOD/range-cache-filehandle)
 underneath it. Its `RemoteFileWithRangeCache` is a drop-in replacement for
-`RemoteFile` that caches byte ranges in chunks, so that a query's many small
-reads turn into a few requests.
+`RemoteFile` that caches byte ranges in chunks, so it answers a query's many
+small reads with a few requests.
 
 ## API
 
@@ -52,7 +52,7 @@ default the way they do.
 - [docs/api.md](docs/api.md) documents every method, option and type, and how to
   extend `RemoteFile`.
 - [docs/optimizations.md](docs/optimizations.md) explains why reads, requests
-  and buffers work the way they do, and what each of those choices measured.
+  and buffers work the way they do, with the measurement behind each choice.
 - [docs/local-files.md](docs/local-files.md) covers the file descriptor that
   `LocalFile` keeps open, and the stub that replaces the class in browser
   builds.
